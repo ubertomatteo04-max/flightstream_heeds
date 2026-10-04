@@ -1,4 +1,4 @@
-# fs_pipeline v2.3: FlightStream in batch, pronto per HEEDS
+# fs_pipeline v2.3.2: FlightStream in batch, pronto per HEEDS
 
 Script Python (solo libreria standard, Python ≥ 3.8) che, in una cartella di design:
 legge `params.txt` → prepara la geometria → scrive lo script FlightStream → lancia FlightStream
@@ -36,7 +36,15 @@ python heeds_mock.py --config case_semiala_ccs.json --var chord_scale=0.9,1.0,1.
 ```
 Riepilogo in `summary.csv` nella cartella `--root` (≈ 15–45 s a design).
 
-**4. HEEDS:** seguire `HEEDS_SETUP.md` (procedura passo-passo del primo Evaluation Only, con la tabella
+**4. Riepilogo e grafici di uno studio HEEDS** (CSV, design scartati, CL–α e L/D–α in PNG), letti dai
+`results.txt` delle cartelle dei design:
+```
+heeds_report.bat --study "C:\Users\UtenteLocale\Desktop\heeds\semiala_fixed\semiala_Study_2"
+```
+Risultati in `<studio>\report\`. `heeds_report.bat` usa il Python di HEEDS (ha matplotlib); con
+`python heeds_report.py ...` senza matplotlib si ottengono solo CSV ed elenco degli scartati.
+
+**5. HEEDS:** seguire `HEEDS_SETUP.md` (procedura passo-passo del primo Evaluation Only, con la tabella
 delle 39 righe di `results.txt` da taggare e i file `heeds_inputs\<modalità>\params.txt` / `results.txt`
 da aggiungere in HEEDS).
 
@@ -60,6 +68,7 @@ da aggiungere in HEEDS).
 | `geometry.py` | come si apre o costruisce la geometria | **chi cambia geometria** |
 | `postprocess.py` | lettura di carichi, log e VTK | nessuno |
 | `heeds_mock.py` | simula HEEDS in locale (più design, riepilogo CSV) | nessuno |
+| `heeds_report.py`, `heeds_report.bat` | riepilogo di uno studio HEEDS o di un DOE mock dai `results.txt` dei design: CSV, scartati, grafici CL–α e L/D–α (il `.bat` usa il Python di HEEDS, che ha matplotlib) | nessuno |
 | `case_*.json` | un file per caso: geometria, condizioni, fluido, solver, riferimenti | chi prepara il caso |
 | `params.txt` | i valori del singolo design (li scrive HEEDS) | HEEDS |
 | `baseline/fixed`, `baseline/ccs` | `params_baseline.txt` e `results_baseline.txt` di run reali a 4° | si rigenerano se cambia lo schema |
