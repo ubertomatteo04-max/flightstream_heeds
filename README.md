@@ -37,8 +37,8 @@ python heeds_mock.py --config case_semiala_ccs.json --var chord_scale=0.9,1.0,1.
 Riepilogo in `summary.csv` nella cartella `--root` (≈ 15–45 s a design).
 
 **4. HEEDS:** seguire `HEEDS_SETUP.md` (procedura passo-passo del primo Evaluation Only, con la tabella
-delle 39 righe di `results.txt` da taggare e i file `baseline\*\params_baseline.txt` /
-`results_baseline.txt`).
+delle 39 righe di `results.txt` da taggare e i file `heeds_inputs\<modalità>\params.txt` / `results.txt`
+da aggiungere in HEEDS).
 
 **Da sapere in breve**
 - Due modalità: `fixed` (template `.fsm`, variabili `aoa`, `velocity`, `sideslip`) e `ccs_wing` (semiala da
@@ -62,7 +62,8 @@ delle 39 righe di `results.txt` da taggare e i file `baseline\*\params_baseline.
 | `heeds_mock.py` | simula HEEDS in locale (più design, riepilogo CSV) | nessuno |
 | `case_*.json` | un file per caso: geometria, condizioni, fluido, solver, riferimenti | chi prepara il caso |
 | `params.txt` | i valori del singolo design (li scrive HEEDS) | HEEDS |
-| `baseline/fixed`, `baseline/ccs` | `params_baseline.txt` e `results_baseline.txt` di run reali a 4°: i file per il tagging in HEEDS | si rigenerano se cambia lo schema |
+| `baseline/fixed`, `baseline/ccs` | `params_baseline.txt` e `results_baseline.txt` di run reali a 4° | si rigenerano se cambia lo schema |
+| `heeds_inputs/fixed`, `heeds_inputs/ccs` | le stesse baseline rinominate `params.txt` e `results.txt`: i file da aggiungere e taggare in HEEDS (HEEDS legge l'output con lo stesso nome del file taggato) | si ricopiano dalle baseline |
 | `HEEDS_SETUP.md` | procedura passo-passo per HEEDS | — |
 | `tests/` | test automatici senza FlightStream (`python -m unittest discover -s tests -v`) | chi cambia il driver |
 | `diagnostica/` | script di analisi dei VTK (strato limite), non usati dal driver | — |
@@ -287,7 +288,7 @@ Le chiavi che iniziano con `_` sono commenti. Esempi: `case_semiala_fixed.json`,
 | `case` | valori di default di `aoa` [deg], `velocity` [m/s], `sideslip` [deg], `altitude` [m] (solo con `override_fluid`) e delle variabili geometriche; `params.txt` li sovrascrive |
 | `fluid.override_fluid` | `false` (default) = fluido del blocco `fluid` / del .fsm; `true` = fluido ISA alla quota `altitude`. Vale per tutte le modalità |
 | `fluid.density`, `viscosity`, `pressure`, `temperature`, `specific_heat_ratio` | fluido del .fsm di riferimento [kg/m³, Pa·s, Pa, K, –]. `density` è sempre obbligatoria (q, L, D); in `ccs_wing` lo sono tutte (`FLUID_PROPERTIES`) |
-| `solver.iterations`, `convergence`, `threads` | iterazioni massime, soglia di convergenza, thread (0 = metà dei core) |
+| `solver.iterations`, `convergence`, `threads` | iterazioni massime, soglia di convergenza, thread del solver (0 = metà dei core logici, oggi 6 su 12). Il driver li fissa con `SET_MAX_PARALLEL_THREADS <n>` (manuale 26.1, p. 339) in ogni script; il manuale cita anche la variabile d'ambiente `OMP_NUM_THREADS` (p. 20), non usata |
 | `solver.model`, `bl_type`, `roughness_nm`, `viscous_coupling`, `wall_collision_avoidance` | modello fisico: usato quando lo script inizializza la simulazione (`ccs_wing`, `fixed` con `reinitialize`); con `reinitialize = false` vale quello del .fsm |
 | `solver.init_surfaces` | superfici di `INITIALIZE_SOLVER`: `[[indice, quad_mesher], …]` (es. `[[1, true]]`) oppure `-1` = tutte. Obbligatoria quando lo script inizializza |
 | `solver.wake_termination_x`, `symmetry` | `"DEFAULT"` o un numero [m]; `"MIRROR"`, `"NONE"` (`ccs_wing` vuole `"MIRROR"`). `symmetry` obbligatoria quando lo script inizializza |

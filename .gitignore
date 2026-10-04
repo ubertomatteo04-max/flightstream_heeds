@@ -1,4 +1,3 @@
-@"
 mock_runs*/
 test_*/
 __pycache__/
@@ -11,4 +10,6 @@ fs_stdout.txt
 results.txt
 run_info.txt
 _old/
-"@ | Set-Content .gitignore
+
+# file di esempio per il tagging in HEEDS: vanno nel repo nonostante 'results.txt' qui sopra
+!heeds_inputs/*/results.txt

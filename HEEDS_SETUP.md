@@ -8,14 +8,20 @@ I nomi di menu e campi di HEEDS scritti qui sono solo quelli già noti; tutto il
 
 ## File da usare
 
-| Modalità | JSON del caso (`--config`) | File di input da taggare | File di output da taggare |
-|---|---|---|---|
-| fixed (variabile: aoa, velocity, sideslip) | `<REPO>\case_semiala_fixed.json` | `<REPO>\baseline\fixed\params_baseline.txt` | `<REPO>\baseline\fixed\results_baseline.txt` |
-| ccs_wing (variabili: aoa, velocity, chord_scale) | `<REPO>\case_semiala_ccs.json` | `<REPO>\baseline\ccs\params_baseline.txt` | `<REPO>\baseline\ccs\results_baseline.txt` |
+HEEDS legge l'output con lo **stesso nome del file taggato**, e il driver legge `params.txt` e scrive
+`results.txt`: per questo i file da aggiungere in HEEDS sono le copie delle baseline già rinominate in
+`heeds_inputs\<modalità>\`.
 
-Le baseline sono run reali lanciati con `run_fs.bat` in una cartella `Design_1\Analysis_1` (2026-10-04,
-v2.3.0): aoa = 4°, V = 20 m/s, CL 0,5767, CDi 0,0077, CDo 0,0125, CMy −0,1993, Re 474985. Per il primo
-Evaluation Only usa **fixed**: un design deve ridare esattamente `results_baseline.txt`.
+| Modalità | JSON del caso (`--config`) | Input da aggiungere e taggare | Output da aggiungere e taggare |
+|---|---|---|---|
+| fixed (variabili: aoa, velocity, sideslip) | `<REPO>\case_semiala_fixed.json` | `<REPO>\heeds_inputs\fixed\params.txt` | `<REPO>\heeds_inputs\fixed\results.txt` |
+| ccs_wing (variabili: aoa, velocity, chord_scale) | `<REPO>\case_semiala_ccs.json` | `<REPO>\heeds_inputs\ccs\params.txt` | `<REPO>\heeds_inputs\ccs\results.txt` |
+
+`heeds_inputs\<modalità>\params.txt` e `results.txt` sono copie identiche di
+`baseline\<modalità>\params_baseline.txt` e `results_baseline.txt`. Le baseline sono run reali lanciati con `run_fs.bat` in una cartella `Design_1\Analysis_1` (2026-10-04,
+v2.3.0; fixed rilanciata in v2.3.1 con Sref = 1,82208): aoa = 4°, V = 20 m/s, CL 0,5767, CDi 0,0077,
+CDo 0,0125, CMy −0,1993, Re 474985. Per il primo Evaluation Only usa **fixed**: un design deve ridare
+esattamente `heeds_inputs\fixed\results.txt`.
 
 ## Prima di cominciare (checklist)
 
@@ -36,12 +42,14 @@ Nel **Process** crea **una Analysis** con portale **"General (no portals)"**.
 
 ## Passo 2 — Files tab: input e output
 
-- **Input:** `params.txt`, con **Target = Analysis folder**. Come contenuto parti da
-  `<REPO>\baseline\fixed\params_baseline.txt`. Il driver legge il file di nome **`params.txt`** nella
-  cartella dell'analisi. *Se HEEDS lo copia con il nome originale (`params_baseline.txt`): DA VERIFICARE.*
-  In quel caso aggiungi `--params params_baseline.txt` alle Command options (passo 4).
-- **Output:** `results.txt` (scritto dal driver nella cartella dell'analisi, sempre, anche in caso di
-  errore). Per il tagging usa come esempio `<REPO>\baseline\fixed\results_baseline.txt`.
+- **Input:** aggiungi `<REPO>\heeds_inputs\fixed\params.txt` con **Target = Analysis folder**. HEEDS lo
+  copia con questo nome nella cartella dell'analisi di ogni design, dove il driver legge `params.txt`.
+  Alternativa, se si vuole partire da un file con un altro nome (es. `baseline\fixed\params_baseline.txt`):
+  **Properties → Target → "Optionally enter a new file name"** = `params.txt`. Ultima alternativa, non più
+  necessaria: lasciare il nome originale e aggiungere `--params <nome del file>` alle Command options.
+- **Output:** aggiungi `<REPO>\heeds_inputs\fixed\results.txt`. HEEDS legge, nella cartella dell'analisi,
+  il file con lo stesso nome del file taggato: `results.txt`, scritto dal driver sempre, anche in caso
+  di errore.
 - Non servono altri file: il JSON e i file della geometria (`..\semiala_run01.fsm`, CCS) sono letti
   dal loro percorso assoluto, risolto rispetto alla cartella del JSON.
 
@@ -76,8 +84,7 @@ restituisce il codice di uscita del driver.
 
 **Quale variante serve: DA VERIFICARE al primo Evaluation Only.** Entrambe sono provate in locale
 (`tests/test_run_fs.py`): codice di uscita 0 e 1 propagati, anche con cartelle e JSON con spazi.
-Per `ccs_wing` cambia solo il JSON (`case_semiala_ccs.json`). Se serve (passo 2), aggiungi
-`--params params_baseline.txt` in fondo alle Command options (dentro le virgolette esterne nella variante B).
+Per `ccs_wing` cambiano il JSON (`case_semiala_ccs.json`) e i file del passo 2 (`heeds_inputs\ccs\`).
 
 ## Passo 5 — Esecuzione in parallelo
 
@@ -85,10 +92,19 @@ Per `ccs_wing` cambia solo il JSON (`case_semiala_ccs.json`). Se serve (passo 2)
 FlightStream se ce n'è già uno attivo (`status = 6`): con più design in parallelo tutti tranne uno
 fallirebbero.
 
-Timeout del design in HEEDS *(nome del campo: DA VERIFICARE)*: maggiore del tempo massimo del driver,
-così è il driver a chiudere FlightStream e a scrivere `status = 2` o `6`. Caso peggiore con i JSON della
-semiala: `(license_retries + 1) × timeout_s + license_retries × license_wait_s` = 3 × 240 + 2 × 60 = 840 s
-→ in HEEDS almeno **15 minuti**. Un run normale dura 15–45 s (più lento con il PC carico).
+Nell'**Execution tab → Advanced Options** dell'Analysis:
+
+- **Max execution time = 1200 s**, solo come **rete di sicurezza**. Il timeout primario è quello del
+  driver (`run.timeout_s` = 240 s nei JSON della semiala): è il driver a chiudere FlightStream e a scrivere
+  `status = 2` o `6`. Caso peggiore di un design nel driver: `(license_retries + 1) × timeout_s +
+  license_retries × license_wait_s` = 3 × 240 + 2 × 60 = 840 s; 1200 s lascia margine. Un run normale dura
+  15–45 s. Allo scadere del Max execution time HEEDS segna il design come completo **senza ucciderlo**
+  (*se invece lo uccide: DA VERIFICARE*): il design diventa errore solo grazie alla Success condition
+  `schema_version = 2` (passo 6), perché `results.txt` manca o è incompleto. **Dopo un caso del genere
+  controllare Gestione attività**: se è rimasto un `FlightStream.exe` (o il comando ancora in esecuzione),
+  chiuderlo a mano prima di proseguire, altrimenti i design successivi danno `status = 6`.
+- **Default decimal delimiter = punto (`.`)**. Il PC è in italiano (virgola come separatore decimale):
+  `params.txt` e `results.txt` usano il punto, e il driver rifiuta `4,0` con `status = 1`.
 
 ## Passo 6 — Success condition
 
@@ -114,7 +130,7 @@ presente: `FS_DRIVER_RESULT status=<n> success=<0|1>`).
 
 Tagga il numero a destra di `=` sulle righe seguenti (le prime tre righe sono commenti, ignorati dal driver).
 
-| Riga | fixed (`baseline\fixed\params_baseline.txt`) | ccs_wing (`baseline\ccs\params_baseline.txt`) | Unità | Note |
+| Riga | fixed (`heeds_inputs\fixed\params.txt`) | ccs_wing (`heeds_inputs\ccs\params.txt`) | Unità | Note |
 |---|---|---|---|---|
 | 4 | `aoa = 4.0` | `aoa = 4.0` | deg | angolo d'attacco |
 | 5 | `velocity = 20.0` | `velocity = 20.0` | m/s | velocità di volo e di riferimento |
@@ -128,7 +144,7 @@ Tagga il numero a destra di `=` sulle righe seguenti (le prime tre righe sono co
 
 ### Risposte (output, delimitatore `=`)
 
-Tagga il numero a destra di `=` di ogni riga di `results_baseline.txt`. **L'ordine delle 39 righe è
+Tagga il numero a destra di `=` di ogni riga di `heeds_inputs\<modalità>\results.txt`. **L'ordine delle 39 righe è
 fisso** e uguale per tutte le modalità (`RESULTS_SCHEMA`, `schema_version = 2`); le chiavi non pertinenti
 alla modalità valgono `-999`; le chiavi future si aggiungeranno solo in fondo al file.
 
@@ -146,9 +162,9 @@ alla modalità valgono `-999`; le chiavi future si aggiungeranno solo in fondo a
 | 10 | `CMy` | carichi | -0.1993 | -0.1993 | risposta (confrontabile solo a Sref costante) |
 | 11 | `CMz` | carichi | 0 | 0 | risposta (confrontabile solo a Sref costante) |
 | 12 | `L_over_D` | carichi | 28.5495 | 28.5495 | **obiettivo** consigliato |
-| 13 | `L_N` | carichi | 257.447 | 257.445 | obiettivo/vincolo (N) |
-| 14 | `D_N` | carichi | 9.01757 | 9.01748 | obiettivo/vincolo (N) |
-| 15 | `Sref_m2` | riferimenti | 1.8221 | 1.82208 | controllo |
+| 13 | `L_N` | carichi | 257.444 | 257.445 | obiettivo/vincolo (N) |
+| 14 | `D_N` | carichi | 9.01747 | 9.01748 | obiettivo/vincolo (N) |
+| 15 | `Sref_m2` | riferimenti | 1.82208 | 1.82208 | controllo |
 | 16 | `Lref_m` | riferimenti | 0.345091 | 0.345091 | controllo |
 | 17 | `Re_ref` | riferimenti | 474985 | 474985 | controllo |
 | 18 | `q_Pa` | riferimenti | 245 | 245 | controllo |
@@ -184,7 +200,7 @@ Uso consigliato:
 
 ## Passo 8 — Study
 
-1. **Evaluation Only** a aoa = 4° (fixed): deve coincidere con `baseline\fixed\results_baseline.txt` e con
+1. **Evaluation Only** a aoa = 4° (fixed): deve coincidere con `heeds_inputs\fixed\results.txt` e con
    il mock (CL 0,5767, CDi 0,0077, CDo 0,0125, CMy −0,1993, Re 474985).
 2. Poi **DOE Full factorial** su `aoa` (fixed), e su `chord_scale` (ccs_wing).
 3. Poi **SHERPA** con obiettivo `L_over_D` (oppure `L_N`/`D_N`), non CL.
@@ -194,7 +210,9 @@ Uso consigliato:
 - **Error designs = Rename** (`Design<X>-ERROR`): restano su disco, con `run_info.txt` che spiega lo status.
 - **Success designs = All designs** nel primo DOE; poi **Best designs**, perché i VTK pesano (≈ 10 MB a
   design).
-- Nei DOE spunta **"Do not stop HEEDS for a design-based error"**.
+- Nei DOE: **If an error occurs** = continua *(testo esatto dell'opzione: DA VERIFICARE)*, insieme a
+  **"Do not stop HEEDS for a design-based error"** nello **Study tab**: un design fallito non deve fermare
+  lo studio.
 
 ## Passo 10 — Design con status 2 o 6, Stop
 
@@ -213,11 +231,12 @@ Uso consigliato:
 ## Checklist del primo Evaluation Only
 
 - [ ] GUI di FlightStream chiusa, login Altair One valido.
-- [ ] Nella cartella del design ci sono `params.txt` (con il nome giusto, passo 2), `fs_script.txt`,
+- [ ] Execution tab → Advanced Options: Max execution time = 1200 s, Default decimal delimiter = punto.
+- [ ] Nella cartella del design ci sono `params.txt` (copiato da HEEDS con questo nome), `fs_script.txt`,
       `results.txt`, `run_info.txt`.
 - [ ] Variante A o B del comando: annotare quale funziona (e aggiornare questo file).
 - [ ] `results.txt` comincia con `schema_version = 2`; HEEDS legge gli stessi valori del file e di
-      `baseline\fixed\results_baseline.txt`.
+      `heeds_inputs\fixed\results.txt`.
 - [ ] Il design risulta riuscito (codice di uscita 0 AND "File contains" `schema_version = 2`).
 - [ ] Prova di errore: una chiave sbagliata in `params.txt` (es. `aoa_x = 4`) → `status = 1`, codice di
       uscita 1, design rinominato `Design<X>-ERROR`.

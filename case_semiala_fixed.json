@@ -17,7 +17,7 @@
              "init_surfaces": [[1, true]], "wake_termination_x": "DEFAULT", "symmetry": "MIRROR",
              "vorticity_drag_boundaries": [1],
              "_nota": "init_surfaces = [indice, quad mesher]; valori dello script del run di riferimento (run_fsm2)"},
-  "reference": {"sref_m2": 1.8221, "lref_m": 0.345091, "symmetry_loads": true,
+  "reference": {"sref_m2": 1.82208, "lref_m": 0.345091, "symmetry_loads": true,
                 "moment_point_m": [0.0, 0.0, 0.0], "moment_frame_index": 2},
   "wing_frame": {"chord_axis": "+x", "span_axis": "+y", "up_axis": "+z", "span_root_m": 0.0,
                  "_nota": "assi della semiala per dorso/ventre, x/c e strisce (metriche sep_frac_*, x_sep_up, H_max_attached_up); toglierlo per corpi non alari"},

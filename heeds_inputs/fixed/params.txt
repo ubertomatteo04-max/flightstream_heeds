@@ -1,0 +1,6 @@
+# params_baseline.txt - modalita fixed (case_semiala_fixed.json): file per il tagging delle variabili in HEEDS.
+# Variabili ammesse in questa modalita: aoa [deg], velocity [m/s], sideslip [deg].
+# altitude NON ammessa (fluido del JSON; serve fluid.override_fluid true). HEEDS sostituisce i numeri a destra.
+aoa = 4.0
+velocity = 20.0
+sideslip = 0.0
