@@ -1,0 +1,27 @@
+{
+  "_nota": "Caso semiala da template .fsm (mode fixed). Significato di ogni chiave: README.md. Percorsi relativi = rispetto a questa cartella.",
+  "flightstream_exe": "",
+  "geometry": {
+    "mode": "fixed",
+    "template_fsm": "../semiala_run01.fsm",
+    "reinitialize": true,
+    "_nota": "reinitialize = true: OPEN con LOAD_SOLVER_INITIALIZATION DISABLE, modello fisico e INITIALIZE_SOLVER dal blocco solver"
+  },
+  "case": {"aoa": 4.0, "velocity": 20.0, "sideslip": 0.0},
+  "fluid": {"override_fluid": false, "density": 1.225, "viscosity": 1.78e-5, "pressure": 101324.02,
+            "temperature": 288.166, "specific_heat_ratio": 1.4,
+            "_nota": "valori della sezione fluido (Air) di semiala_run01.fsm, uguali per fixed e ccs_wing. override_fluid = true -> ISA alla quota 'altitude'"},
+  "solver": {"iterations": 500, "convergence": 1e-5, "threads": 0,
+             "model": "INCOMPRESSIBLE", "bl_type": "TRANSITIONAL", "roughness_nm": 0.0,
+             "viscous_coupling": false, "wall_collision_avoidance": false,
+             "init_surfaces": [[1, true]], "wake_termination_x": "DEFAULT", "symmetry": "MIRROR",
+             "vorticity_drag_boundaries": [1],
+             "_nota": "init_surfaces = [indice, quad mesher]; valori dello script del run di riferimento (run_fsm2)"},
+  "reference": {"sref_m2": 1.8221, "lref_m": 0.345091, "symmetry_loads": true,
+                "moment_point_m": [0.0, 0.0, 0.0], "moment_frame_index": 2},
+  "postproc": {"vtk_surfaces": []},
+  "run": {"timeout_s": 1800, "save_fsm": false, "license_retries": 2, "license_wait_s": 60},
+  "validation": {"CL": 0.5767, "CDi": 0.0077, "CDo": 0.0125, "CMy": -0.1993,
+                 "Re_ref": 474985, "iterations": 91, "rel_tol": 0.005,
+                 "_nota": "run di riferimento run_fsm2 (aoa 4, V 20, OPEN ... DISABLE + INITIALIZE_SOLVER esplicito). Riprodotto esattamente il 2026-10-04 con reinitialize = true (anche residui e CL/CDi a 5 cifre nel log)."}
+}

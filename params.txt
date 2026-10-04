@@ -1,0 +1,7 @@
+# Parametri del design: HEEDS sostituisce i valori a destra dell'uguale.
+# Chiavi ammesse: aoa [deg], velocity [m/s], sideslip [deg]
+# + altitude [m] solo in ccs_wing o in fixed con fluid.override_fluid = true
+# + le variabili geometriche della modalita' scelta (ccs_wing: chord_scale).
+# Una chiave non ammessa blocca il run con status = 1.
+aoa = 4.0
+velocity = 20.0

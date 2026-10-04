@@ -1,0 +1,14 @@
+@"
+mock_runs*/
+test_*/
+__pycache__/
+*.vtk
+*.fsm
+*.csv
+loads.txt
+fs_log.txt
+fs_stdout.txt
+results.txt
+run_info.txt
+_old/
+"@ | Set-Content .gitignore

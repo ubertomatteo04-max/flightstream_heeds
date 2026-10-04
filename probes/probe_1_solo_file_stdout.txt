@@ -1,0 +1,9 @@
+--------------------------------------------------------------------------------------
+FlightStream version 26.1, build #5012026
+Software copyrights: Altair, 2024-2026.
+--------------------------------------------------------------------------------------
+Checking out Altair units...Success!
+Running script file: C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline\probes\probe_1_solo_file.txt
+
+WARNING | Syntax | OPEN | Unexpected argument EXPORT_LOG | Remove the argument or use a supported one per documentation.
+ERROR | Scripting | N/A | Error in script 'C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline\probes\probe_1_solo_file.txt' at line 4: 'EXPORT_LOG' | Review command syntax and arguments.

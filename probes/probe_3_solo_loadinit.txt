@@ -1,0 +1,11 @@
+# probe_3_solo_loadinit
+
+OPEN
+C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\semiala_run01.fsm
+LOAD_SOLVER_INITIALIZATION ENABLE
+
+EXPORT_LOG
+C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline\probes\probe_3_solo_loadinit_log.txt
+
+CLOSE_FLIGHTSTREAM
+

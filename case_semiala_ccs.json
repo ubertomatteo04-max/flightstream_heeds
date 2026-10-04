@@ -1,0 +1,24 @@
+{
+  "_nota": "Caso semiala ricostruita da CCS con corda variabile (mode ccs_wing). Significato di ogni chiave: README.md.",
+  "flightstream_exe": "",
+  "geometry": {
+    "mode": "ccs_wing",
+    "base_ccs": "../semiala_ccs_U120_V64_blended.csv",
+    "mesh_u": 120, "mesh_v": 64, "te_type": "blended", "root_cap_tol_m": 1e-4
+  },
+  "case": {"aoa": 4.0, "velocity": 20.0, "sideslip": 0.0, "chord_scale": 1.0},
+  "fluid": {"override_fluid": false, "density": 1.225, "viscosity": 1.78e-5, "pressure": 101324.02,
+            "temperature": 288.166, "specific_heat_ratio": 1.4,
+            "_nota": "valori della sezione fluido (Air) di semiala_run01.fsm, uguali per fixed e ccs_wing. override_fluid = true -> ISA alla quota 'altitude'"},
+  "solver": {"iterations": 500, "convergence": 1e-5, "threads": 0,
+             "model": "INCOMPRESSIBLE", "bl_type": "TRANSITIONAL", "roughness_nm": 0.0,
+             "viscous_coupling": false, "wall_collision_avoidance": false,
+             "init_surfaces": [[1, true]], "wake_termination_x": "DEFAULT", "symmetry": "MIRROR",
+             "vorticity_drag_boundaries": [1]},
+  "reference": {"sref_m2": null, "lref_m": null, "symmetry_loads": true,
+                "moment_point_m": [0.0, 0.0, 0.0], "moment_frame_index": 2},
+  "postproc": {"vtk_surfaces": [], "strip": [0.45, 0.55], "bin_width": 0.02,
+               "xtr_threshold": 0.99, "te_window": [0.90, 0.98], "exclude_le": 0.05},
+  "run": {"timeout_s": 1800, "save_fsm": false, "license_retries": 2, "license_wait_s": 60},
+  "validation": {"CL": 0.5767, "CDi": 0.0077, "CDo": 0.0125, "CMy": -0.1993, "rel_tol": 0.01}
+}

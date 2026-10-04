@@ -1,0 +1,16 @@
+--------------------------------------------------------------------------------------
+FlightStream version 26.1, build #5012026
+Software copyrights: Altair, 2024-2026.
+--------------------------------------------------------------------------------------
+Checking out Altair units...Success!
+Running script file: C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline\probes\probe_4_csys.txt
+
+Wake grid created with a depth of 9, 21316 cells, and 57863 vertices.
+Removed 0 cells as non-wall intersections.
+Physical memory used: 658.227 MB
+Simulation file saved in version: 26.1, build #5012026 and opening in version: 26.1, build #5012026
+Simulation file opened from following location:
+C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\semiala_run01.fsm
+
+Solver model: Incompressible
+Solver mode: Steady

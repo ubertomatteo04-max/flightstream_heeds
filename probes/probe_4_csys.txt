@@ -1,0 +1,33 @@
+# probe_4_csys
+
+OPEN
+C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\semiala_run01.fsm
+LOAD_SOLVER_INITIALIZATION ENABLE
+
+# sistema dei momenti: unita' di ORIGIN_* non documentate (da verificare),
+# l'origine viene poi reimpostata con SET_COORDINATE_SYSTEM_ORIGIN in METER
+CREATE_NEW_COORDINATE_SYSTEM
+
+EDIT_COORDINATE_SYSTEM
+FRAME 2
+NAME MOMENT_REF
+ORIGIN_X 0
+ORIGIN_Y 0
+ORIGIN_Z 0
+VECTOR_X_X 1
+VECTOR_X_Y 0
+VECTOR_X_Z 0
+VECTOR_Y_X 0
+VECTOR_Y_Y 1
+VECTOR_Y_Z 0
+VECTOR_Z_X 0
+VECTOR_Z_Y 0
+VECTOR_Z_Z 1
+
+SET_COORDINATE_SYSTEM_ORIGIN 2 0 0 0 METER
+
+EXPORT_LOG
+C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline\probes\probe_4_csys_log.txt
+
+CLOSE_FLIGHTSTREAM
+

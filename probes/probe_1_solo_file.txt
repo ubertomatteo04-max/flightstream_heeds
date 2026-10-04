@@ -1,0 +1,10 @@
+# probe_1_solo_file
+
+OPEN
+C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\semiala_run01.fsm
+
+EXPORT_LOG
+C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline\probes\probe_1_solo_file_log.txt
+
+CLOSE_FLIGHTSTREAM
+
