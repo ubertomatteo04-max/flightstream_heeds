@@ -31,6 +31,7 @@ import json
 import math
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -40,7 +41,7 @@ import traceback
 import geometry
 import postprocess as pp
 
-__version__ = "2.2.3"
+__version__ = "2.3.0"
 
 DEFAULTS = {
     "flightstream_exe": "",
@@ -217,21 +218,31 @@ def load_config(path):
     return cfg
 
 
+_PARAM_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_PARAM_FLOAT = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
+
+
 def read_params(path):
-    """File 'chiave = valore' scritto da HEEDS (righe vuote e testo dopo # ignorati)."""
+    """File 'chiave = valore' scritto da HEEDS. Righe vuote e testo dopo # ignorati; CRLF/LF, BOM,
+    spazi attorno e ultima riga senza a capo accettati. Valore: qualsiasi numero decimale nei
+    formati di stampa di HEEDS (4, 4.0, 4.000000E+00, 4.0e0, -1.5E-01). Errore (status 1) per righe
+    senza '=' o con piu' '=', chiave non valida, valore non numerico o non finito, chiave ripetuta."""
     out = {}
-    with open(path, "r", encoding="utf-8") as f:
-        for n, line in enumerate(f, 1):
-            line = line.split("#", 1)[0].strip()
+    with open(path, "r", encoding="utf-8-sig") as f:
+        for n, raw in enumerate(f, 1):
+            line = raw.split("#", 1)[0].strip()
             if not line:
                 continue
-            if "=" not in line:
-                raise ValueError(f"params.txt riga {n}: manca '=' ({line!r})")
-            k, v = (s.strip() for s in line.split("=", 1))
-            try:
-                out[k] = float(v)
-            except ValueError:
+            if line.count("=") != 1:
+                raise ValueError(f"params.txt riga {n}: attesa una riga 'chiave = valore' ({raw.strip()!r})")
+            k, v = (s.strip() for s in line.split("="))
+            if not _PARAM_KEY.fullmatch(k):
+                raise ValueError(f"params.txt riga {n}: nome di variabile non valido ({k!r})")
+            if not _PARAM_FLOAT.fullmatch(v):
                 raise ValueError(f"params.txt riga {n}: valore non numerico per '{k}' ({v!r})")
+            if k in out:
+                raise ValueError(f"params.txt riga {n}: '{k}' compare piu' di una volta")
+            out[k] = float(v)
     return out
 
 

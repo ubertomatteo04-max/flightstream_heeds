@@ -1,8 +1,57 @@
-# fs_pipeline v2: FlightStream in batch, pronto per HEEDS
+# fs_pipeline v2.3: FlightStream in batch, pronto per HEEDS
 
 Script Python (solo libreria standard, Python ≥ 3.8) che, in una cartella di design:
 legge `params.txt` → prepara la geometria → scrive lo script FlightStream → lancia FlightStream
 senza interfaccia → legge carichi, log e VTK → scrive `results.txt`.
+
+## Quick start
+
+**Requisiti:** Windows, FlightStream 26.1 (`C:\Program Files\Altair\2026.1\flightstream\FlightStream.exe`,
+trovato da solo), Python 3 indicato in testa a `run_fs.bat`, login Altair One valido, **GUI di
+FlightStream chiusa** (un solo FlightStream alla volta, altrimenti `status = 6`).
+
+**1. Prova senza FlightStream (pochi secondi):**
+```
+cd C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline
+python -m unittest discover -s tests -v
+```
+
+**2. Un design come lo lancerà HEEDS** (cartella del design = cartella corrente, `params.txt` dentro):
+```
+mkdir "C:\HEEDS prove\Design_1\Analysis_1"
+copy baseline\fixed\params_baseline.txt "C:\HEEDS prove\Design_1\Analysis_1\params.txt"
+cd /d "C:\HEEDS prove\Design_1\Analysis_1"
+"C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline\run_fs.bat" --config "C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline\case_semiala_fixed.json"
+echo %ERRORLEVEL%
+```
+Atteso in 15–45 s: codice di uscita 0, `results.txt` uguale a `baseline\fixed\results_baseline.txt`
+(`schema_version = 2`, `status = 0`, CL 0,5767, CDi 0,0077, CDo 0,0125, CMy −0,1993, Re 474985).
+Il motivo di uno status diverso da 0 è in `run_info.txt`, che termina con
+`FS_DRIVER_RESULT status=<n> success=<0|1>`.
+
+**3. Più design (simula HEEDS):**
+```
+python heeds_mock.py --config case_semiala_fixed.json --var aoa=0,2,4,6,8 --root "C:\HEEDS prove\doe aoa"
+python heeds_mock.py --config case_semiala_ccs.json --var chord_scale=0.9,1.0,1.1 --root "C:\HEEDS prove\doe corda"
+```
+Riepilogo in `summary.csv` nella cartella `--root` (≈ 15–45 s a design).
+
+**4. HEEDS:** seguire `HEEDS_SETUP.md` (procedura passo-passo del primo Evaluation Only, con la tabella
+delle 39 righe di `results.txt` da taggare e i file `baseline\*\params_baseline.txt` /
+`results_baseline.txt`).
+
+**Da sapere in breve**
+- Due modalità: `fixed` (template `.fsm`, variabili `aoa`, `velocity`, `sideslip`) e `ccs_wing` (semiala da
+  CCS, in più `chord_scale`; `sideslip` = 0). Con `chord_scale` Sref cambia: obiettivi `L_over_D` o
+  `L_N`/`D_N`, non CL.
+- `results.txt` ha sempre 39 righe nello stesso ordine (`-999` = non disponibile); chiavi nuove solo in fondo.
+- Codice di uscita 0 solo se lo status è in `heeds.success_statuses` del JSON (default `[0]`).
+- Status: 0 ok, 1 setup/errore, 2 timeout (`run.timeout_s` = 240 s nei JSON della semiala), 3 non
+  convergente, 4 manca solo H/cf, 5 non fisico, 6 FlightStream non disponibile (licenza o già attivo).
+- Vincolo di separazione consigliato: `sep_frac_up_le`; `x_sep_up`, `H_max_attached_up`,
+  `sep_frac_lo_te` sono solo diagnostica.
+
+## File
 
 | File | Cosa fa | Chi lo modifica |
 |---|---|---|
@@ -13,7 +62,10 @@ senza interfaccia → legge carichi, log e VTK → scrive `results.txt`.
 | `heeds_mock.py` | simula HEEDS in locale (più design, riepilogo CSV) | nessuno |
 | `case_*.json` | un file per caso: geometria, condizioni, fluido, solver, riferimenti | chi prepara il caso |
 | `params.txt` | i valori del singolo design (li scrive HEEDS) | HEEDS |
-| `HEEDS_SETUP.md` | come collegare tutto in HEEDS | — |
+| `baseline/fixed`, `baseline/ccs` | `params_baseline.txt` e `results_baseline.txt` di run reali a 4°: i file per il tagging in HEEDS | si rigenerano se cambia lo schema |
+| `HEEDS_SETUP.md` | procedura passo-passo per HEEDS | — |
+| `tests/` | test automatici senza FlightStream (`python -m unittest discover -s tests -v`) | chi cambia il driver |
+| `diagnostica/` | script di analisi dei VTK (strato limite), non usati dal driver | — |
 | `_old/` | versione precedente (`fs_pipeline.py`), solo come riferimento | — |
 
 I percorsi nel JSON sono relativi alla cartella del JSON. Nei JSON di esempio il template `.fsm` e
@@ -118,7 +170,7 @@ File prodotti nella cartella: `results.txt` (per HEEDS), `run_info.txt` (motivo 
 densità usata), `fs_script.txt`, `fs_stdout.txt`, `FlightStreamLog.txt` (solo se FlightStream si
 ferma per un errore), `loads.txt`, `fs_log.txt`, `surface.vtk`, `bl_profiles.csv` (solo `ccs_wing`)
 e `case_ccs.csv` (solo `ccs_wing`). All'avvio i risultati vecchi vengono cancellati.
-Un run della semiala in `fixed` dura circa 15 s, in `ccs_wing` circa 27 s.
+Un run della semiala in `fixed` dura circa 15–40 s, in `ccs_wing` circa 25–45 s (il solver è più lento con il PC carico: baseline del 2026-10-04 sera 36 s e 44 s, pomeriggio 16 s e 27 s).
 
 **Licenza.** Durante il run il driver legge `fs_stdout.txt`. Se compare "Checking out Altair
 units...Not available" e dopo 15 s nessun fallback (EDU, licenza a feature) è riuscito, chiude
@@ -248,7 +300,7 @@ Le chiavi che iniziano con `_` sono commenti. Esempi: `case_semiala_fixed.json`,
 | `postproc.strip`, `bin_width`, `xtr_threshold`, `te_window`, `exclude_le` | (`ccs_wing`) striscia in apertura, larghezza delle fasce in corda, soglia di transizione, finestra del bordo d'uscita, zona di ristagno esclusa |
 | `wing_frame` | assi dell'ala per le metriche di separazione: `{"chord_axis": "+x", "span_axis": "+y", "up_axis": "+z"}` (corda dal bordo d'attacco al bordo d'uscita, apertura dalla radice all'estremità, verso il dorso), opzionali `span_root_m` (default 0: si usano le facce con coordinata in apertura ≥ radice, cioè una semiala; le facce specchiate sono escluse) e `n_strips` (strisce in apertura, default 60). Assente o `null` = le cinque metriche di separazione valgono -999 (es. fusoliera); un valore non valido = status 1 |
 | `postproc.sep_cf`, `le_xc`, `lo_te_xc`, `x_sep_eta`, `h_attached_xc_max` | (con `wing_frame`) soglia di separazione (cella separata se cf < −sep_cf, default 1e-5), x/c del bordo d'attacco per `sep_frac_up_le` (0,15), x/c del bordo d'uscita per `sep_frac_lo_te` (0,8), strisce usate per `x_sep_up` (η 0,05–0,95), x/c massimo per `H_max_attached_up` (0,95) |
-| `run.timeout_s`, `run.save_fsm` | tempo massimo per FlightStream (per tentativo); salvare `case.fsm` nella cartella del design |
+| `run.timeout_s`, `run.save_fsm` | tempo massimo per FlightStream, per tentativo: circa 10 volte il tempo nominale del caso; ogni JSON ha il proprio (semiala: 240 s, per run di 15–27 s; default del driver se manca: 1800 s); salvare `case.fsm` nella cartella del design |
 | `run.flightstream_process_names` | nomi dei processi di FlightStream per il controllo prima del lancio e la pulizia dopo (default `["FlightStream.exe"]`: in un run `-hidden` del 26.1 c'è un solo processo, senza figli) |
 | `run.kill_stale_flightstream` | `false` (default): se c'è già un FlightStream attivo il run non parte e dà status 6; `true`: il driver lo chiude (anche la GUI, senza salvare) e poi lancia. Il driver non chiude mai altri processi se non è `true` |
 | `run.license_retries`, `run.license_wait_s` | nuovi tentativi se la licenza non è disponibile (default 2, oltre al primo) e attesa prima di ognuno (default 60 s); poi `status = 6` |

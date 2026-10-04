@@ -1,0 +1,6 @@
+# params_baseline.txt - modalita ccs_wing (case_semiala_ccs.json): file per il tagging delle variabili in HEEDS.
+# Variabili di questa modalita: aoa [deg], velocity [m/s], chord_scale [-] (fattore sulla corda, > 0).
+# sideslip deve restare 0 (simmetria Mirror); altitude NON ammessa. HEEDS sostituisce i numeri a destra.
+aoa = 4.0
+velocity = 20.0
+chord_scale = 1.0
