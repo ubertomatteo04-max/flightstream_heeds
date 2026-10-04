@@ -17,6 +17,8 @@
              "vorticity_drag_boundaries": [1]},
   "reference": {"sref_m2": null, "lref_m": null, "symmetry_loads": true,
                 "moment_point_m": [0.0, 0.0, 0.0], "moment_frame_index": 2},
+  "wing_frame": {"chord_axis": "+x", "span_axis": "+y", "up_axis": "+z", "span_root_m": 0.0,
+                 "_nota": "assi della semiala per dorso/ventre, x/c e strisce (metriche sep_frac_*, x_sep_up, H_max_attached_up); toglierlo per corpi non alari"},
   "postproc": {"vtk_surfaces": [], "strip": [0.45, 0.55], "bin_width": 0.02,
                "xtr_threshold": 0.99, "te_window": [0.90, 0.98], "exclude_le": 0.05},
   "run": {"timeout_s": 1800, "save_fsm": false, "license_retries": 2, "license_wait_s": 60},

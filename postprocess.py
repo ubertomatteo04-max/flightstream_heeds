@@ -4,7 +4,9 @@ postprocess.py - Lettura dei risultati di FlightStream, in blocchi indipendenti:
   1. coefficienti (CL, CD, CM) dalla tabella dei carichi, con il log come riserva;
   2. convergenza dal log;
   3. strato limite (H, cf) dal VTK: metriche generiche su tutte le facce esportate e, solo per
-     la semiala, la striscia in apertura con dorso/ventre.
+     la semiala, la striscia in apertura con dorso/ventre;
+  4. metriche di separazione di un'ala (dorso/ventre, x/c, strisce in apertura), solo se il JSON
+     ha il blocco "wing_frame" (classificazione portata da diagnostica/diag_bl.py).
 
 Ogni funzione solleva ValueError con un messaggio chiaro se il file non e' nel formato atteso:
 il driver decide lo status. Valori mancanti = None (il driver li scrive come -999).
@@ -273,3 +275,129 @@ def write_profiles(path, prof):
         for side in ("up", "lo"):
             for x, h, c, t in prof[side]:
                 f.write(f"{side},{x:.4f},{h:.5f},{c:.6f},{t:.4f}\n")
+
+
+# --------------------------------------------------------------------------------------
+# 4. Metriche di separazione di un'ala (blocco "wing_frame" del JSON)
+# --------------------------------------------------------------------------------------
+WING_KEYS = ["sep_frac_up_le", "x_sep_up", "H_max_attached_up", "x_H_max_attached_up", "sep_frac_lo_te"]
+_AXES = {"x": 0, "y": 1, "z": 2}
+_FRAME_KEYS = {"chord_axis", "span_axis", "up_axis", "span_root_m", "n_strips"}
+TIP_NORMAL = 0.7          # |componente in apertura della normale| oltre cui una faccia e' d'estremita'
+
+
+def _axis(text, key):
+    """'+x', 'x', '-y' ... -> (indice della coordinata, segno)."""
+    t = str(text).strip().lower()
+    ax = t.lstrip("+-")
+    if ax not in _AXES or len(t) - len(ax) > 1:
+        raise ValueError(f"wing_frame.{key} = {text!r} non valido: usa x, y o z con segno opzionale (es. '+x', '-y')")
+    return _AXES[ax], -1.0 if t.startswith("-") else 1.0
+
+
+def parse_wing_frame(wf):
+    """Blocco wing_frame del JSON -> assi e parametri. Forma minima:
+        {"chord_axis": "+x", "span_axis": "+y", "up_axis": "+z"}
+    chord_axis: verso dal bordo d'attacco al bordo d'uscita; span_axis: dalla radice all'estremita';
+    up_axis: dal ventre al dorso. Opzionali: span_root_m (coordinata della radice lungo span_axis,
+    default 0: si usano solo le facce con coordinata >= radice, cioe' una semiala; le facce
+    specchiate della simmetria Mirror sono escluse) e n_strips (strisce in apertura, default 60)."""
+    bad = sorted(set(wf) - _FRAME_KEYS)
+    if bad:
+        raise ValueError(f"chiavi non riconosciute in wing_frame: {bad} (ammesse: {sorted(_FRAME_KEYS)})")
+    out = {k: _axis(wf.get(k, ""), k) for k in ("chord_axis", "span_axis", "up_axis")}
+    if len({v[0] for v in out.values()}) != 3:
+        raise ValueError("wing_frame: chord_axis, span_axis e up_axis devono essere tre assi diversi")
+    out["span_root_m"] = float(wf.get("span_root_m", 0.0))
+    out["n_strips"] = int(wf.get("n_strips", 60))
+    if out["n_strips"] < 1:
+        raise ValueError("wing_frame.n_strips deve essere >= 1")
+    return out
+
+
+def _newell(q):
+    """Normale unitaria di un poligono (formula di Newell)."""
+    n = [0.0, 0.0, 0.0]
+    for a in range(len(q)):
+        p0, p1 = q[a], q[(a + 1) % len(q)]
+        n[0] += (p0[1] - p1[1]) * (p0[2] + p1[2])
+        n[1] += (p0[2] - p1[2]) * (p0[0] + p1[0])
+        n[2] += (p0[0] - p1[0]) * (p0[1] + p1[1])
+    s = math.sqrt(sum(v * v for v in n)) or 1.0
+    return [v / s for v in n]
+
+
+def wing_cells(vtk, frame):
+    """Classifica le facce della semiala (coordinata in apertura >= radice), come in
+    diagnostica/diag_bl.py: lato 'up'/'lo' dal segno della normale lungo up_axis (verso della
+    normale fissato dalla quota media: il dorso sta sopra), 'tip' se la normale e' quasi parallela
+    all'apertura; x/c rispetto alla corda locale della striscia (estensione dei vertici lungo
+    chord_axis); eta = posizione in apertura tra radice (0) ed estremita' (1)."""
+    pts, polys = vtk["pts"], vtk["polys"]
+    (ic, sc), (isp, ss), (iu, su) = frame["chord_axis"], frame["span_axis"], frame["up_axis"]
+    root, nstrip = frame["span_root_m"], frame["n_strips"]
+    cen = [[sum(pts[k][j] for k in p) / len(p) for j in range(3)] for p in polys]
+    half = [i for i in range(len(polys)) if ss * cen[i][isp] >= root]
+    if not half:
+        raise ValueError("wing_frame: nessuna faccia con coordinata in apertura >= span_root_m")
+    nrm = {i: _newell([pts[k] for k in polys[i]]) for i in half}
+    pos = [i for i in half if su * nrm[i][iu] > 0]
+    neg = [i for i in half if su * nrm[i][iu] < 0]
+    if not pos or not neg:
+        raise ValueError("wing_frame: impossibile distinguere dorso e ventre")
+    zmean = lambda ks: sum(su * cen[i][iu] for i in ks) / len(ks)
+    orient = 1.0 if zmean(pos) > zmean(neg) else -1.0
+    span = {i: ss * cen[i][isp] - root for i in half}
+    b = max(span.values())
+    if b <= 0:
+        raise ValueError("wing_frame: apertura nulla")
+    strip = {i: min(int(span[i] / b * nstrip), nstrip - 1) for i in half}
+    ext = {}
+    for i in half:
+        for k in polys[i]:
+            c = sc * pts[k][ic]
+            lo, hi = ext.get(strip[i], (math.inf, -math.inf))
+            ext[strip[i]] = (min(lo, c), max(hi, c))
+    cells = []
+    for i in half:
+        n_up, n_span = orient * su * nrm[i][iu], orient * ss * nrm[i][isp]
+        side = "tip" if abs(n_span) > TIP_NORMAL else ("up" if n_up > 0 else "lo")
+        c_le, c_te = ext[strip[i]]
+        xc = (sc * cen[i][ic] - c_le) / (c_te - c_le) if c_te > c_le else math.nan
+        cells.append({"i": i, "side": side, "xc": xc, "eta": span[i] / b, "strip": strip[i]})
+    return cells
+
+
+def wing_frame_metrics(vtk, frame, pp):
+    """Metriche di separazione della semiala. Cella separata: cf < -pp['sep_cf'].
+      sep_frac_up_le      area separata sul dorso a x/c < le_xc / area del dorso
+      x_sep_up            minimo sulle strisce (centro in eta tra x_sep_eta) del primo x/c separato
+                          sul dorso dal bordo d'attacco; 1.0 = nessuna separazione sul dorso
+      H_max_attached_up   H massimo sul dorso dove cf > sep_cf e x/c <= h_attached_xc_max
+      x_H_max_attached_up x/c di quella faccia
+      sep_frac_lo_te      area separata sul ventre a x/c > lo_te_xc / area del ventre (diagnostica)
+    Le facce d'estremita' non appartengono ne' al dorso ne' al ventre."""
+    f = _bl_fields(vtk)
+    thr = pp["sep_cf"]
+    cells = wing_cells(vtk, frame)
+    up = [c for c in cells if c["side"] == "up"]
+    lo = [c for c in cells if c["side"] == "lo"]
+    area = lambda cs: sum(f["area"][c["i"]] for c in cs)
+    sep = lambda c: f["cf"][c["i"]] < -thr
+    a_up, a_lo = area(up), area(lo)
+    if a_up <= 0 or a_lo <= 0:
+        raise ValueError("wing_frame: area del dorso o del ventre nulla")
+    out = {"sep_frac_up_le": area([c for c in up if sep(c) and c["xc"] < pp["le_xc"]]) / a_up,
+           "sep_frac_lo_te": area([c for c in lo if sep(c) and c["xc"] > pp["lo_te_xc"]]) / a_lo}
+    e0, e1 = pp["x_sep_eta"]
+    n = frame["n_strips"]
+    first = [c["xc"] for c in up if sep(c) and e0 <= (c["strip"] + 0.5) / n <= e1]
+    out["x_sep_up"] = min(first) if first else 1.0
+    att = [c for c in up if f["cf"][c["i"]] > thr and c["xc"] <= pp["h_attached_xc_max"]
+           and math.isfinite(f["H"][c["i"]])]
+    if att:
+        best = max(att, key=lambda c: f["H"][c["i"]])
+        out["H_max_attached_up"], out["x_H_max_attached_up"] = f["H"][best["i"]], best["xc"]
+    else:
+        out["H_max_attached_up"] = out["x_H_max_attached_up"] = None
+    return out

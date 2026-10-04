@@ -60,7 +60,13 @@ DEFAULTS = {
     "reference": {"sref_m2": None, "lref_m": None, "symmetry_loads": True,
                   "moment_point_m": None, "moment_frame_index": 2},
     "postproc": {"vtk_surfaces": [], "strip": [0.45, 0.55], "bin_width": 0.02,
-                 "xtr_threshold": 0.99, "te_window": [0.90, 0.98], "exclude_le": 0.05},
+                 "xtr_threshold": 0.99, "te_window": [0.90, 0.98], "exclude_le": 0.05,
+                 # metriche di separazione con wing_frame (postprocess.wing_frame_metrics)
+                 "sep_cf": 1.0e-5, "le_xc": 0.15, "lo_te_xc": 0.8, "x_sep_eta": [0.05, 0.95],
+                 "h_attached_xc_max": 0.95},
+    # assi dell'ala per dorso/ventre, x/c e strisce: null = metriche di separazione a -999
+    # (es. fusoliera). Forma: {"chord_axis": "+x", "span_axis": "+y", "up_axis": "+z"}
+    "wing_frame": None,
     # license_retries: nuovi tentativi (oltre al primo) se la licenza non e' disponibile,
     # ciascuno dopo license_wait_s secondi; se fallisce anche l'ultimo, status 6
     "run": {"timeout_s": 1800, "save_fsm": False, "license_retries": 2, "license_wait_s": 60},
@@ -107,7 +113,8 @@ def _onoff(flag):
 
 def result_keys():
     """Chiavi di results.txt, sempre le stesse e nello stesso ordine per qualsiasi caso
-    (le variabili geometriche di tutte le modalita' compaiono sempre, -999 se non usate)."""
+    (le variabili geometriche di tutte le modalita' compaiono sempre, -999 se non usate).
+    HEEDS legge le risposte per posizione: le chiavi nuove si aggiungono SOLO in coda."""
     geo = []
     for names in geometry.GEOMETRY_VARIABLES.values():
         geo += [n for n in names if n not in geo]
@@ -115,7 +122,8 @@ def result_keys():
              "CL", "CD", "CDi", "CDo", "CMx", "CMy", "CMz", "L_over_D", "L_N", "D_N", "q_Pa",
              "xtr_up", "xtr_lo", "H_te_up", "H_te_lo", "H_max_up", "H_max_lo", "cf_min_up", "cf_min_lo",
              "area_frac_cf_neg", "H_max", "sep_max"]
-            + FLIGHT_VARS + geo + ["Sref_m2", "Lref_m", "Re_ref"])
+            + FLIGHT_VARS + geo + ["Sref_m2", "Lref_m", "Re_ref"]
+            + pp.WING_KEYS)                                   # v2.2.0, wing_frame
 
 
 # --------------------------------------------------------------------------------------
@@ -141,7 +149,7 @@ def _warn_unknown(user):
     for sec, val in user.items():
         if sec not in DEFAULTS:
             log(f"ATTENZIONE: sezione '{sec}' del JSON non riconosciuta (ignorata).")
-        elif isinstance(val, dict) and sec not in ("geometry", "case"):
+        elif isinstance(val, dict) and sec not in ("geometry", "case", "wing_frame"):   # wing_frame: postprocess
             for k in val:
                 if k not in DEFAULTS[sec]:
                     log(f"ATTENZIONE: chiave '{sec}.{k}' del JSON non riconosciuta (ignorata).")
@@ -460,21 +468,26 @@ def read_coefficients(files, notes):
     return loads, logd
 
 
-def read_boundary_layer(files, mode, ppcfg, notes):
-    """Blocco 2: strato limite dal VTK. Restituisce (metriche, ok); un errore qui non tocca CL/CD."""
+def read_boundary_layer(files, mode, ppcfg, frame, notes):
+    """Blocco 2: strato limite dal VTK. Restituisce (metriche, ok); un errore qui non tocca CL/CD
+    (status 4) e le metriche gia' calcolate restano. frame = wing_frame interpretato, oppure None
+    (metriche di separazione dell'ala a -999)."""
+    out = {}
     try:
         if not files.get("vtk") or not os.path.isfile(files["vtk"]):
             raise ValueError(f"file VTK assente ({files.get('vtk')})")
         vtk = pp.read_vtk(files["vtk"])
-        out = pp.generic_metrics(vtk)
+        out.update(pp.generic_metrics(vtk))
         if geometry.POSTPROC[mode] == "wing_strip":
             strip, prof = pp.wing_strip_metrics(vtk, ppcfg)
             out.update(strip)
             pp.write_profiles(files["profiles"], prof)
+        if frame is not None:
+            out.update(pp.wing_frame_metrics(vtk, frame, ppcfg))
         return out, True
     except Exception as e:
         notes.append(f"H/cf: {type(e).__name__}: {e}")
-        return {}, False
+        return out, False
 
 
 def dimensional(res, case, ref, fluid, header=None):
@@ -517,7 +530,7 @@ def extract(files, mode, cfg, case, ref, fluid, res, notes):
     res.update(dimensional(res, case, ref, fluid, header))
     notes.append(f"densita' per q, L, D: {header.get('density') or fluid['rho']:.6g} kg/m^3 "
                  f"({'tabella dei carichi' if header.get('density') else fluid['source']})")
-    bl, bl_ok = read_boundary_layer(files, mode, cfg["postproc"], notes)
+    bl, bl_ok = read_boundary_layer(files, mode, cfg["postproc"], cfg["_wing_frame"], notes)
     res.update(bl)
     return decide_status(res, bl_ok, notes)
 
@@ -636,6 +649,8 @@ def parse_args(argv):
 def run(a, cfg, workdir, res, notes):
     """Esegue il caso: aggiorna res e notes e restituisce lo status."""
     mode = cfg["geometry"]["mode"]
+    # wing_frame controllato subito: un errore nel JSON e' un errore di setup (status 1)
+    cfg["_wing_frame"] = pp.parse_wing_frame(cfg["wing_frame"]) if cfg["wing_frame"] else None
     params_path = os.path.join(workdir, a.params)          # un percorso assoluto resta invariato
     if not os.path.isfile(params_path):
         raise ValueError(f"file dei parametri non trovato: {params_path}")

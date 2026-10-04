@@ -19,6 +19,8 @@
              "_nota": "init_surfaces = [indice, quad mesher]; valori dello script del run di riferimento (run_fsm2)"},
   "reference": {"sref_m2": 1.8221, "lref_m": 0.345091, "symmetry_loads": true,
                 "moment_point_m": [0.0, 0.0, 0.0], "moment_frame_index": 2},
+  "wing_frame": {"chord_axis": "+x", "span_axis": "+y", "up_axis": "+z", "span_root_m": 0.0,
+                 "_nota": "assi della semiala per dorso/ventre, x/c e strisce (metriche sep_frac_*, x_sep_up, H_max_attached_up); toglierlo per corpi non alari"},
   "postproc": {"vtk_surfaces": []},
   "run": {"timeout_s": 1800, "save_fsm": false, "license_retries": 2, "license_wait_s": 60},
   "validation": {"CL": 0.5767, "CDi": 0.0077, "CDo": 0.0125, "CMy": -0.1993,

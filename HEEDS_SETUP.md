@@ -75,6 +75,13 @@ In HEEDS ogni risposta si definisce leggendo il numero dopo `=` sulla riga della
 | `area_frac_cf_neg`, `H_max`, `sep_max` | – | frazione d'area con cf < 0, H massimo, marker di separazione massimo (tutte le modalità) |
 | `aoa`, `velocity`, `altitude`, `sideslip`, `chord_scale` | come input | valori effettivamente usati (controllo; -999 se la variabile non esiste nella modalità) |
 | `Sref_m2`, `Lref_m`, `Re_ref` | m², m, – | riferimenti usati e Reynolds su Lref (quello scritto da FlightStream nella tabella dei carichi) |
+| `sep_frac_up_le` | – | (con `wing_frame`) frazione dell'area del dorso separata a x/c < 0,15 |
+| `x_sep_up` | – | (con `wing_frame`) primo x/c separato sul dorso, minimo sulle strisce η 0,05–0,95; **1.0 = nessuna separazione** |
+| `H_max_attached_up`, `x_H_max_attached_up` | – | (con `wing_frame`) H massimo sul dorso dove lo strato limite è attaccato (x/c ≤ 0,95) e il suo x/c |
+| `sep_frac_lo_te` | – | (con `wing_frame`) frazione dell'area del ventre separata a x/c > 0,8; solo diagnostica |
+
+Le ultime cinque righe sono state aggiunte in coda nella v2.2.0: le posizioni delle chiavi precedenti
+non cambiano. Senza `wing_frame` nel JSON valgono -999.
 
 ## Vincolo obbligatorio: `status = 0`
 

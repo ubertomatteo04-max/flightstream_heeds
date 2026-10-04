@@ -168,7 +168,10 @@ restano confrontabili.
 
 Chiavi: `status converged iterations CL CD CDi CDo CMx CMy CMz L_over_D L_N D_N q_Pa xtr_up xtr_lo
 H_te_up H_te_lo H_max_up H_max_lo cf_min_up cf_min_lo area_frac_cf_neg H_max sep_max aoa velocity
-altitude sideslip chord_scale Sref_m2 Lref_m Re_ref`. Il significato è in `HEEDS_SETUP.md`.
+altitude sideslip chord_scale Sref_m2 Lref_m Re_ref sep_frac_up_le x_sep_up H_max_attached_up
+x_H_max_attached_up sep_frac_lo_te`. Il significato è in `HEEDS_SETUP.md`. **HEEDS legge le risposte per
+posizione: le chiavi nuove si aggiungono solo in coda, mai riordinate né tolte** (le ultime cinque
+sono della v2.2.0).
 
 ## Il JSON del caso
 
@@ -195,6 +198,8 @@ Le chiavi che iniziano con `_` sono commenti. Esempi: `case_semiala_fixed.json`,
 | `reference.moment_frame_index` | indice del nuovo sistema di riferimento (default 2). **Se il .fsm ha già sistemi utente, va aumentato** (es. 3) |
 | `postproc.vtk_surfaces` | indici delle superfici da esportare nel VTK e usare per H/cf; `[]` = tutte |
 | `postproc.strip`, `bin_width`, `xtr_threshold`, `te_window`, `exclude_le` | (`ccs_wing`) striscia in apertura, larghezza delle fasce in corda, soglia di transizione, finestra del bordo d'uscita, zona di ristagno esclusa |
+| `wing_frame` | assi dell'ala per le metriche di separazione: `{"chord_axis": "+x", "span_axis": "+y", "up_axis": "+z"}` (corda dal bordo d'attacco al bordo d'uscita, apertura dalla radice all'estremità, verso il dorso), opzionali `span_root_m` (default 0: si usano le facce con coordinata in apertura ≥ radice, cioè una semiala; le facce specchiate sono escluse) e `n_strips` (strisce in apertura, default 60). Assente o `null` = le cinque metriche di separazione valgono -999 (es. fusoliera); un valore non valido = status 1 |
+| `postproc.sep_cf`, `le_xc`, `lo_te_xc`, `x_sep_eta`, `h_attached_xc_max` | (con `wing_frame`) soglia di separazione (cella separata se cf < −sep_cf, default 1e-5), x/c del bordo d'attacco per `sep_frac_up_le` (0,15), x/c del bordo d'uscita per `sep_frac_lo_te` (0,8), strisce usate per `x_sep_up` (η 0,05–0,95), x/c massimo per `H_max_attached_up` (0,95) |
 | `run.timeout_s`, `run.save_fsm` | tempo massimo per FlightStream (per tentativo); salvare `case.fsm` nella cartella del design |
 | `run.license_retries`, `run.license_wait_s` | nuovi tentativi se la licenza non è disponibile (default 2, oltre al primo) e attesa prima di ognuno (default 60 s); poi `status = 6` |
 | `validation` | valori del run di riferimento per `--validate` (CL, CDi, CDo, CMy, `Re_ref`, `iterations`, tolleranza relativa `rel_tol`) |
@@ -216,7 +221,26 @@ Il .fsm deve essere in metri (da verificare se un template usa altre unità).
   automaticamente chiavi ammesse in `params.txt` e colonne di `results.txt`.
 
 Limiti da ricordare per corpi diversi dall'ala: con `fixed` gli scalari della striscia (`xtr_*`,
-`H_te_*`, `H_max_*`, `cf_min_*`) valgono -999 e restano solo `area_frac_cf_neg`, `H_max` e `sep_max`.
+`H_te_*`, `H_max_*`, `cf_min_*`) valgono -999; senza `wing_frame` valgono -999 anche le metriche di
+separazione (`sep_frac_*`, `x_sep_up`, `*H_max_attached_up`) e restano solo `area_frac_cf_neg`,
+`H_max` e `sep_max`.
+
+### Metriche di separazione (con `wing_frame`, v2.2.0)
+
+Dalla diagnosi del 2026-10-04 (`../STATO.md`): una cella separata ha cf < 0 e H bloccato a 3,9155; il
+segno di cf è riferito alla linea di corrente superficiale (non alla corrente libera), quindi la zona
+tra il ristagno e il bordo d'attacco **non** dà falsi positivi. `H_max` vale 3,9155 appena compare una
+separazione e `sep_max` è sempre 0 senza modello di separazione: restano solo per compatibilità.
+Le metriche si calcolano sulla semiala (facce d'estremità escluse), pesate sull'area:
+- `sep_frac_up_le`: area separata del dorso a x/c < 0,15 / area del dorso (bolla di bordo d'attacco).
+- `x_sep_up`: per ogni striscia in apertura (η 0,05–0,95) il primo x/c separato sul dorso dal bordo
+  d'attacco; si scrive il minimo sulle strisce. **Convenzione: 1.0 = nessuna separazione sul dorso.**
+  Comprende anche le bolle laminari corte prima della transizione (a 4° vale 0,40), quindi non è da
+  solo un indicatore di stallo.
+- `H_max_attached_up`, `x_H_max_attached_up`: H massimo sul dorso dove cf > 1e-5 e x/c ≤ 0,95, e il suo
+  x/c (quanto lo strato limite attaccato è vicino alla separazione).
+- `sep_frac_lo_te`: area separata del ventre a x/c > 0,8 / area del ventre. Solo diagnostica (bolla del
+  ventre al bordo d'uscita arrotondato), da non usare come vincolo di stallo.
 Il metodo a pannelli con strato limite integrale non prevede la resistenza di pressione dovuta
 alla separazione su corpi tozzi. `Sref` e `Lref` vanno scelti per il nuovo corpo.
 
