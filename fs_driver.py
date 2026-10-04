@@ -10,8 +10,10 @@ Passi: params.txt -> geometry.py -> script FlightStream -> run senza interfaccia
 status in results.txt:  0 ok | 1 errore generico/setup | 2 timeout | 3 solver non convergente
                         4 H/cf non estraibili (CL/CD validi) | 5 risultati non fisici
                         6 licenza FlightStream non disponibile (dopo run.license_retries tentativi)
-Codice di uscita del processo: 0 se status = 0, altrimenti 1.
-Il motivo di uno status diverso da 0 e' scritto in run_info.txt.
+Codice di uscita del processo: 0 se lo status e' in heeds.success_statuses del JSON (default [0]),
+altrimenti 1. Il motivo di uno status diverso da 0 e' scritto in run_info.txt, che termina sempre
+con la riga 'FS_DRIVER_RESULT status=<n> success=<0|1>' (anche ultima riga dell'output).
+results.txt contiene 'schema_version = <n>' (versione dell'elenco e dell'ordine delle chiavi).
 
 Opzioni per l'uso locale:
     --dry-run        scrive solo fs_script.txt (FlightStream non viene lanciato; status = 1)
@@ -37,7 +39,7 @@ import traceback
 import geometry
 import postprocess as pp
 
-__version__ = "2.2.0"
+__version__ = "2.2.1"
 
 DEFAULTS = {
     "flightstream_exe": "",
@@ -70,6 +72,9 @@ DEFAULTS = {
     # license_retries: nuovi tentativi (oltre al primo) se la licenza non e' disponibile,
     # ciascuno dopo license_wait_s secondi; se fallisce anche l'ultimo, status 6
     "run": {"timeout_s": 1800, "save_fsm": False, "license_retries": 2, "license_wait_s": 60},
+    # codice di uscita del processo: 0 se lo status e' in success_statuses, altrimenti 1
+    # ([0] per l'ottimizzazione, [0, 4] per DOE in cui H/cf non sono obiettivi)
+    "heeds": {"success_statuses": [0]},
     "validation": {"CL": None, "CDi": None, "CDo": None, "CMy": None, "Re_ref": None,
                    "iterations": None, "rel_tol": 0.01},
 }
@@ -111,19 +116,45 @@ def _onoff(flag):
     return "ENABLE" if flag else "DISABLE"
 
 
+# Schema di results.txt: UNICO punto in cui si decidono chiavi e ordine. Stesso elenco per tutte
+# le modalita' (unione delle chiavi di fixed e ccs_wing); le chiavi non pertinenti valgono -999.
+# HEEDS legge le risposte per posizione: una chiave nuova si aggiunge SOLO in fondo al file, cioe'
+# in coda all'ultima sezione (vedi README, "Contratto con HEEDS"); mai in mezzo, mai riordinare o
+# togliere chiavi. Ogni modifica dello schema incrementa SCHEMA_VERSION (scritto in results.txt).
+SCHEMA_VERSION = 2
+RESULTS_SCHEMA = (
+    ("stato", ["schema_version", "status", "converged", "iterations"]),
+    ("carichi", ["CL", "CD", "CDi", "CDo", "CMx", "CMy", "CMz", "L_over_D", "L_N", "D_N"]),
+    ("riferimenti", ["Sref_m2", "Lref_m", "Re_ref", "q_Pa"]),
+    ("strato_limite", ["xtr_up", "xtr_lo", "H_te_up", "H_te_lo", "H_max_up", "H_max_lo",
+                       "cf_min_up", "cf_min_lo", "area_frac_cf_neg", "H_max", "sep_max",
+                       "sep_frac_up_le", "x_sep_up", "H_max_attached_up", "x_H_max_attached_up",
+                       "sep_frac_lo_te"]),
+    ("ingressi", ["aoa", "velocity", "altitude", "sideslip", "chord_scale"]),
+)
+
+
 def result_keys():
-    """Chiavi di results.txt, sempre le stesse e nello stesso ordine per qualsiasi caso
-    (le variabili geometriche di tutte le modalita' compaiono sempre, -999 se non usate).
-    HEEDS legge le risposte per posizione: le chiavi nuove si aggiungono SOLO in coda."""
-    geo = []
+    """Chiavi di results.txt nell'ordine di RESULTS_SCHEMA."""
+    return [k for _, keys in RESULTS_SCHEMA for k in keys]
+
+
+def _check_schema():
+    """Ogni variabile di ingresso (anche quelle geometriche di tutte le modalita') e ogni metrica
+    dell'ala deve avere il suo posto nello schema: una modalita' nuova senza aggiornare lo schema
+    blocca il driver invece di spostare in silenzio le posizioni lette da HEEDS."""
+    keys = result_keys()
+    if len(keys) != len(set(keys)):
+        raise RuntimeError("RESULTS_SCHEMA contiene chiavi duplicate")
+    need = set(FLIGHT_VARS) | set(pp.WING_KEYS)
     for names in geometry.GEOMETRY_VARIABLES.values():
-        geo += [n for n in names if n not in geo]
-    return (["status", "converged", "iterations",
-             "CL", "CD", "CDi", "CDo", "CMx", "CMy", "CMz", "L_over_D", "L_N", "D_N", "q_Pa",
-             "xtr_up", "xtr_lo", "H_te_up", "H_te_lo", "H_max_up", "H_max_lo", "cf_min_up", "cf_min_lo",
-             "area_frac_cf_neg", "H_max", "sep_max"]
-            + FLIGHT_VARS + geo + ["Sref_m2", "Lref_m", "Re_ref"]
-            + pp.WING_KEYS)                                   # v2.2.0, wing_frame
+        need |= set(names)
+    missing = sorted(need - set(keys))
+    if missing:
+        raise RuntimeError(f"RESULTS_SCHEMA non contiene {missing}: aggiungile in fondo all'ultima sezione")
+
+
+_check_schema()
 
 
 # --------------------------------------------------------------------------------------
@@ -162,6 +193,10 @@ def load_config(path):
     _warn_unknown(user)
     cfg = _merge(json.loads(json.dumps(DEFAULTS)), user)
     cfg["_dir"] = os.path.dirname(os.path.abspath(path))
+    ok = cfg["heeds"]["success_statuses"]
+    if not isinstance(ok, list) or not ok or any(s not in STATUS_TEXT for s in ok):
+        raise ValueError(f"heeds.success_statuses = {ok!r} non valido: lista non vuota di status "
+                         f"tra {sorted(STATUS_TEXT)} (es. [0] oppure [0, 4])")
     exe = cfg.get("flightstream_exe")
     if exe and not os.path.isabs(exe):
         cfg["flightstream_exe"] = os.path.join(cfg["_dir"], exe)
@@ -553,13 +588,20 @@ def write_results(workdir, res):
             f.write(f"{k} = {_value(res.get(k))}\n")
 
 
-def write_run_info(workdir, status, notes):
-    """run_info.txt: status in chiaro e motivi (per le persone, HEEDS non lo legge)."""
+def result_line(status, ok_statuses):
+    """Riga fissa per la condizione 'File contains' di HEEDS: status e success (1 se lo status e'
+    in heeds.success_statuses, cioe' se il codice di uscita e' 0)."""
+    return f"FS_DRIVER_RESULT status={status} success={int(status in ok_statuses)}"
+
+
+def write_run_info(workdir, status, notes, ok_statuses):
+    """run_info.txt: status in chiaro e motivi; l'ultima riga e' sempre quella di result_line."""
     with open(os.path.join(workdir, FILES["info"]), "w", encoding="utf-8") as f:
         f.write(f"status = {status} ({STATUS_TEXT.get(status, '?')})\n")
         f.write(f"fs_driver v{__version__}, {_dt.datetime.now():%Y-%m-%d %H:%M:%S}\n")
         for n in notes:
             f.write(f"- {n}\n")
+        f.write(result_line(status, ok_statuses) + "\n")
 
 
 def clean_old(workdir, keep_inputs):
@@ -698,9 +740,10 @@ def main(argv=None):
         write_probes(load_config(a.config), workdir, a.exe)
         return 0
     clean_old(workdir, a.extract_only)
-    res, notes, status = {}, [], 1
+    res, notes, status, ok_statuses = {}, [], 1, DEFAULTS["heeds"]["success_statuses"]
     try:
         cfg = load_config(a.config)
+        ok_statuses = cfg["heeds"]["success_statuses"]
         status = run(a, cfg, workdir, res, notes)
     except subprocess.TimeoutExpired as e:
         status = 2
@@ -714,11 +757,12 @@ def main(argv=None):
         if not isinstance(e, (ValueError, OSError)):
             notes.append(traceback.format_exc())
     finally:
-        res["status"] = status
+        res["schema_version"], res["status"] = SCHEMA_VERSION, status
         write_results(workdir, res)
-        write_run_info(workdir, status, notes)
+        write_run_info(workdir, status, notes, ok_statuses)
     log(f"status = {status} ({STATUS_TEXT[status]})" + "".join(f"\n    - {n}" for n in notes[:6]))
-    return 0 if status == 0 else 1
+    print(result_line(status, ok_statuses), flush=True)    # ultima riga dell'output del driver
+    return 0 if status in ok_statuses else 1
 
 
 if __name__ == "__main__":

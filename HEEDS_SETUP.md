@@ -60,28 +60,32 @@ Formato `chiave = valore`, sempre le stesse chiavi nello stesso ordine; `-999` =
 In HEEDS ogni risposta si definisce leggendo il numero dopo `=` sulla riga della chiave
 *(modalità di lettura per chiave o per riga: da verificare; le righe hanno posizione fissa)*.
 
-| Risposta | Unità | Significato |
-|---|---|---|
-| `status` | – | 0 ok, 1 errore, 2 timeout, 3 non convergente, 4 H/cf non estraibili, 5 non fisico, 6 licenza non disponibile |
-| `converged`, `iterations` | – | 1 se convergente; iterazioni eseguite |
-| `CL`, `CD`, `CDi`, `CDo` | – | coefficienti di portanza e resistenza (`CD = CDi + CDo`), riferiti a `Sref_m2` |
-| `CMx`, `CMy`, `CMz` | – | coefficienti di momento attorno a `reference.moment_point_m` |
-| `L_over_D` | – | CL/CD |
-| `L_N`, `D_N` | N | portanza e resistenza: `C·q·Sref` |
-| `q_Pa` | Pa | pressione dinamica ½ρV² (in `fixed` ρ = `fluid.density` del JSON, cioè quella del .fsm) |
-| `xtr_up`, `xtr_lo` | – | x/c di transizione, dorso e ventre (solo `ccs_wing`) |
-| `H_te_up`, `H_te_lo`, `H_max_up`, `H_max_lo` | – | fattore di forma al bordo d'uscita e massimo (solo `ccs_wing`) |
-| `cf_min_up`, `cf_min_lo` | – | cf minimo in corda (solo `ccs_wing`) |
-| `area_frac_cf_neg`, `H_max`, `sep_max` | – | frazione d'area con cf < 0, H massimo, marker di separazione massimo (tutte le modalità) |
-| `aoa`, `velocity`, `altitude`, `sideslip`, `chord_scale` | come input | valori effettivamente usati (controllo; -999 se la variabile non esiste nella modalità) |
-| `Sref_m2`, `Lref_m`, `Re_ref` | m², m, – | riferimenti usati e Reynolds su Lref (quello scritto da FlightStream nella tabella dei carichi) |
-| `sep_frac_up_le` | – | (con `wing_frame`) frazione dell'area del dorso separata a x/c < 0,15 |
-| `x_sep_up` | – | (con `wing_frame`) primo x/c separato sul dorso, minimo sulle strisce η 0,05–0,95; **1.0 = nessuna separazione** |
-| `H_max_attached_up`, `x_H_max_attached_up` | – | (con `wing_frame`) H massimo sul dorso dove lo strato limite è attaccato (x/c ≤ 0,95) e il suo x/c |
-| `sep_frac_lo_te` | – | (con `wing_frame`) frazione dell'area del ventre separata a x/c > 0,8; solo diagnostica |
+Ordine fisso per tutte le modalità (`RESULTS_SCHEMA` in `fs_driver.py`, `schema_version = 2`, v2.2.1); le
+chiavi non pertinenti alla modalità valgono -999. Le chiavi nuove si aggiungono solo in fondo al file.
 
-Le ultime cinque righe sono state aggiunte in coda nella v2.2.0: le posizioni delle chiavi precedenti
-non cambiano. Senza `wing_frame` nel JSON valgono -999.
+| # | Risposta | Unità | Significato |
+|---|---|---|---|
+| 1 | `schema_version` | – | versione dello schema di results.txt (oggi 2); cambia a ogni modifica dell'elenco o dell'ordine delle chiavi |
+| 2 | `status` | – | 0 ok, 1 errore, 2 timeout, 3 non convergente, 4 H/cf non estraibili, 5 non fisico, 6 licenza non disponibile |
+| 3–4 | `converged`, `iterations` | – | 1 se convergente; iterazioni eseguite |
+| 5–8 | `CL`, `CD`, `CDi`, `CDo` | – | coefficienti di portanza e resistenza (`CD = CDi + CDo`), riferiti a `Sref_m2` |
+| 9–11 | `CMx`, `CMy`, `CMz` | – | coefficienti di momento attorno a `reference.moment_point_m` |
+| 12 | `L_over_D` | – | CL/CD |
+| 13–14 | `L_N`, `D_N` | N | portanza e resistenza: `C·q·Sref` |
+| 15–17 | `Sref_m2`, `Lref_m`, `Re_ref` | m², m, – | riferimenti usati e Reynolds su Lref (quello scritto da FlightStream nella tabella dei carichi) |
+| 18 | `q_Pa` | Pa | pressione dinamica ½ρV² (ρ = `fluid.density` del JSON, cioè quella del .fsm) |
+| 19–20 | `xtr_up`, `xtr_lo` | – | x/c di transizione, dorso e ventre (solo `ccs_wing`) |
+| 21–24 | `H_te_up`, `H_te_lo`, `H_max_up`, `H_max_lo` | – | fattore di forma al bordo d'uscita e massimo (solo `ccs_wing`) |
+| 25–26 | `cf_min_up`, `cf_min_lo` | – | cf minimo in corda (solo `ccs_wing`) |
+| 27–29 | `area_frac_cf_neg`, `H_max`, `sep_max` | – | frazione d'area con cf < 0, H massimo, marker di separazione massimo (tutte le modalità; compatibilità) |
+| 30 | `sep_frac_up_le` | – | (con `wing_frame`) frazione dell'area del dorso separata a x/c < 0,15. **Vincolo di separazione consigliato** |
+| 31 | `x_sep_up` | – | (con `wing_frame`) primo x/c separato sul dorso, minimo sulle strisce η 0,05–0,95; 1.0 = nessuna separazione. **Solo diagnostica** |
+| 32–33 | `H_max_attached_up`, `x_H_max_attached_up` | – | (con `wing_frame`) H massimo sul dorso dove lo strato limite è attaccato (x/c ≤ 0,95) e il suo x/c. **Solo diagnostica** |
+| 34 | `sep_frac_lo_te` | – | (con `wing_frame`) frazione dell'area del ventre separata a x/c > 0,8. **Solo diagnostica** |
+| 35–39 | `aoa`, `velocity`, `altitude`, `sideslip`, `chord_scale` | come input | eco dei valori effettivamente usati (controllo; -999 se la variabile non esiste nella modalità) |
+
+Senza `wing_frame` nel JSON le righe 30–34 valgono -999. Da non usare come vincoli o obiettivi:
+`x_sep_up`, `H_max_attached_up`, `x_H_max_attached_up`, `sep_frac_lo_te` (diagnostica, vedi README).
 
 ## Vincolo obbligatorio: `status = 0`
 
@@ -97,8 +101,16 @@ non cambiano. Senza `wing_frame` nel JSON valgono -999.
   prima di uno studio lungo.
 - Se vuoi accettare anche i design in cui manca solo H/cf (CL/CD validi), il vincolo diventa
   `status = 0 oppure 4`. Decidilo in base alle risposte che usi.
-- Il codice di uscita è 1 per ogni status diverso da 0. Se HEEDS considera "fallito" un design
-  con codice di uscita ≠ 0 *(da verificare)*, quei design saranno comunque esclusi.
+- Il codice di uscita è 0 solo se lo status è in `heeds.success_statuses` del JSON (default `[0]`),
+  altrimenti 1. La condizione di successo di HEEDS legge solo il codice di uscita o il contenuto di un
+  file, non le risposte.
+- **Success condition consigliata:** codice di uscita = 0 **AND** "File contains" `schema_version = 2`
+  in `results.txt`. La seconda condizione garantisce che `results.txt` abbia lo schema su cui sono
+  state taggate le risposte (se lo schema cambia, i design falliscono invece di leggere righe sbagliate).
+  *(Come HEEDS combina due condizioni in AND: DA VERIFICARE nella GUI.)*
+- Alternativa al codice di uscita: "File contains" `FS_DRIVER_RESULT status=0 success=1` su
+  `run_info.txt` (ultima riga, sempre presente; `success` = 1 se lo status è in `success_statuses`, quindi
+  con `[0, 4]` basta cercare `success=1`). Per un DOE in cui H/cf non servono: `"success_statuses": [0, 4]`.
 - In ogni caso il motivo è in `run_info.txt` nella cartella del design.
 
 ## Obiettivi con geometria variabile

@@ -142,7 +142,15 @@ cartelle `Design_NNN` già presenti in `--out`.**
 
 - È scritto **sempre**, anche in caso di errore, con le stesse chiavi nello stesso ordine
   (`chiave = valore`). Valore mancante = `-999`.
-- Codice di uscita: 0 se `status = 0`, altrimenti 1.
+- Codice di uscita: 0 se lo status è in `heeds.success_statuses` del JSON (default `[0]`), altrimenti 1.
+  `[0]` per l'ottimizzazione; `[0, 4]` per i DOE in cui H/cf non sono obiettivi (status 4 = CL/CD validi,
+  manca solo lo strato limite). Gli status 1, 2, 3, 5, 6 non vanno mai messi nella lista.
+- `run_info.txt` termina **sempre** con la riga fissa `FS_DRIVER_RESULT status=<n> success=<0|1>`, che è
+  anche l'ultima riga stampata dal driver; `success = 1` se lo status è in `heeds.success_statuses` (cioè
+  se il codice di uscita è 0). È l'alternativa al codice di uscita per la condizione "File contains"
+  di HEEDS (cercare `success=1`).
+- `results.txt` comincia con `schema_version = 2`. Success condition consigliata in HEEDS: codice di
+  uscita = 0 AND "File contains" `schema_version = 2` in `results.txt` (vedi `HEEDS_SETUP.md`).
 
 | status | Significato | Coefficienti scritti? |
 |---|---|---|
@@ -166,12 +174,32 @@ portanza più alta. Come obiettivi e vincoli usare `L_over_D` (adimensionale e i
 Sref) oppure le forze dimensionali `L_N` e `D_N`. Con `fixed` (Sref costante) i coefficienti
 restano confrontabili.
 
-Chiavi: `status converged iterations CL CD CDi CDo CMx CMy CMz L_over_D L_N D_N q_Pa xtr_up xtr_lo
-H_te_up H_te_lo H_max_up H_max_lo cf_min_up cf_min_lo area_frac_cf_neg H_max sep_max aoa velocity
-altitude sideslip chord_scale Sref_m2 Lref_m Re_ref sep_frac_up_le x_sep_up H_max_attached_up
-x_H_max_attached_up sep_frac_lo_te`. Il significato è in `HEEDS_SETUP.md`. **HEEDS legge le risposte per
-posizione: le chiavi nuove si aggiungono solo in coda, mai riordinate né tolte** (le ultime cinque
-sono della v2.2.0).
+**Schema fisso** (`RESULTS_SCHEMA` in `fs_driver.py`, unico punto in cui si decide): le stesse chiavi
+nello stesso ordine per **tutte** le modalità; quelle non pertinenti valgono -999. Sezioni, in ordine:
+
+| Sezione | Chiavi |
+|---|---|
+| stato | `schema_version status converged iterations` |
+| carichi | `CL CD CDi CDo CMx CMy CMz L_over_D L_N D_N` |
+| riferimenti | `Sref_m2 Lref_m Re_ref q_Pa` |
+| strato limite | `xtr_up xtr_lo H_te_up H_te_lo H_max_up H_max_lo cf_min_up cf_min_lo area_frac_cf_neg H_max sep_max sep_frac_up_le x_sep_up H_max_attached_up x_H_max_attached_up sep_frac_lo_te` |
+| ingressi (eco) | `aoa velocity altitude sideslip chord_scale` |
+
+Il significato è in `HEEDS_SETUP.md`. **HEEDS legge le risposte per posizione.** Regole:
+- una chiave nuova si aggiunge **solo in fondo al file** (in coda all'ultima sezione, oggi "ingressi"):
+  aggiungerla in coda a una sezione intermedia sposterebbe tutte le righe successive;
+- mai riordinare né togliere chiavi;
+- una variabile geometrica nuova (modalità nuova) va aggiunta in fondo a `RESULTS_SCHEMA`: se manca, il
+  driver si ferma all'avvio invece di spostare le posizioni in silenzio;
+- **ogni modifica dello schema incrementa `SCHEMA_VERSION`** (scritto come `schema_version` nella prima
+  riga di `results.txt`): così HEEDS, che controlla `schema_version = 2`, rifiuta un results.txt con
+  un ordine diverso da quello taggato invece di leggere righe sbagliate;
+- `tests/test_schema.py` controlla che `fixed` e `ccs_wing` scrivano lo stesso elenco, che le
+  posizioni dello schema 2 non cambino e che la prima riga sia `schema_version = 2`
+  (`python -m unittest discover -s tests -v`).
+
+Lo schema 2 (v2.2.1) ha riordinato le chiavi rispetto alla v2.1 (riferimenti dopo i carichi, eco
+degli ingressi in fondo): andava fatto prima del primo tagging in HEEDS.
 
 ## Il JSON del caso
 
@@ -202,6 +230,7 @@ Le chiavi che iniziano con `_` sono commenti. Esempi: `case_semiala_fixed.json`,
 | `postproc.sep_cf`, `le_xc`, `lo_te_xc`, `x_sep_eta`, `h_attached_xc_max` | (con `wing_frame`) soglia di separazione (cella separata se cf < −sep_cf, default 1e-5), x/c del bordo d'attacco per `sep_frac_up_le` (0,15), x/c del bordo d'uscita per `sep_frac_lo_te` (0,8), strisce usate per `x_sep_up` (η 0,05–0,95), x/c massimo per `H_max_attached_up` (0,95) |
 | `run.timeout_s`, `run.save_fsm` | tempo massimo per FlightStream (per tentativo); salvare `case.fsm` nella cartella del design |
 | `run.license_retries`, `run.license_wait_s` | nuovi tentativi se la licenza non è disponibile (default 2, oltre al primo) e attesa prima di ognuno (default 60 s); poi `status = 6` |
+| `heeds.success_statuses` | status per cui il processo esce con codice 0 (default `[0]`; es. `[0, 4]` nei DOE). Un valore non valido = status 1 |
 | `validation` | valori del run di riferimento per `--validate` (CL, CDi, CDo, CMy, `Re_ref`, `iterations`, tolleranza relativa `rel_tol`) |
 
 Il .fsm deve essere in metri (da verificare se un template usa altre unità).
@@ -233,14 +262,20 @@ tra il ristagno e il bordo d'attacco **non** dà falsi positivi. `H_max` vale 3,
 separazione e `sep_max` è sempre 0 senza modello di separazione: restano solo per compatibilità.
 Le metriche si calcolano sulla semiala (facce d'estremità escluse), pesate sull'area:
 - `sep_frac_up_le`: area separata del dorso a x/c < 0,15 / area del dorso (bolla di bordo d'attacco).
-- `x_sep_up`: per ogni striscia in apertura (η 0,05–0,95) il primo x/c separato sul dorso dal bordo
-  d'attacco; si scrive il minimo sulle strisce. **Convenzione: 1.0 = nessuna separazione sul dorso.**
-  Comprende anche le bolle laminari corte prima della transizione (a 4° vale 0,40), quindi non è da
-  solo un indicatore di stallo.
-- `H_max_attached_up`, `x_H_max_attached_up`: H massimo sul dorso dove cf > 1e-5 e x/c ≤ 0,95, e il suo
-  x/c (quanto lo strato limite attaccato è vicino alla separazione).
-- `sep_frac_lo_te`: area separata del ventre a x/c > 0,8 / area del ventre. Solo diagnostica (bolla del
-  ventre al bordo d'uscita arrotondato), da non usare come vincolo di stallo.
+- `x_sep_up` (**diagnostica**): per ogni striscia in apertura (η 0,05–0,95) il primo x/c separato sul
+  dorso dal bordo d'attacco; si scrive il minimo sulle strisce. **Convenzione: 1.0 = nessuna
+  separazione sul dorso.** Comprende anche le bolle laminari corte prima della transizione (0,40 a 4°,
+  1,0 a 8°, 0,02 a 12°): non è monotono con l'incidenza.
+- `H_max_attached_up`, `x_H_max_attached_up` (**diagnostica**): H massimo sul dorso dove cf > 1e-5 e
+  x/c ≤ 0,95, e il suo x/c (quanto lo strato limite attaccato è vicino alla separazione).
+- `sep_frac_lo_te` (**diagnostica**): area separata del ventre a x/c > 0,8 / area del ventre (bolla del
+  ventre al bordo d'uscita arrotondato).
+
+**Per HEEDS:** il vincolo di separazione consigliato è `sep_frac_up_le` (es. `sep_frac_up_le ≤` una
+soglia da scegliere per lo studio). `x_sep_up`, `H_max_attached_up`, `x_H_max_attached_up` e
+`sep_frac_lo_te` sono solo diagnostica: **non usarli come vincoli né come obiettivi**. Con
+`viscous_coupling = false` e senza modello di separazione i carichi restano comunque lineari.
+
 Il metodo a pannelli con strato limite integrale non prevede la resistenza di pressione dovuta
 alla separazione su corpi tozzi. `Sref` e `Lref` vanno scelti per il nuovo corpo.
 

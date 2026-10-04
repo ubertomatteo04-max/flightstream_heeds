@@ -23,6 +23,8 @@
                  "_nota": "assi della semiala per dorso/ventre, x/c e strisce (metriche sep_frac_*, x_sep_up, H_max_attached_up); toglierlo per corpi non alari"},
   "postproc": {"vtk_surfaces": []},
   "run": {"timeout_s": 1800, "save_fsm": false, "license_retries": 2, "license_wait_s": 60},
+  "heeds": {"success_statuses": [0],
+            "_nota": "codice di uscita 0 se lo status e in questa lista: [0] per l ottimizzazione, [0, 4] per DOE in cui H/cf non sono obiettivi"},
   "validation": {"CL": 0.5767, "CDi": 0.0077, "CDo": 0.0125, "CMy": -0.1993,
                  "Re_ref": 474985, "iterations": 91, "rel_tol": 0.005,
                  "_nota": "run di riferimento run_fsm2 (aoa 4, V 20, OPEN ... DISABLE + INITIALIZE_SOLVER esplicito). Riprodotto esattamente il 2026-10-04 con reinitialize = true (anche residui e CL/CDi a 5 cifre nel log)."}

@@ -1,0 +1,37 @@
+
+
+
+
+                              Aerodynamic loads
+
+
+     Simulation file:                            C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\semiala_run01.fsm
+     Angle of attack (Deg)                       4.000
+     Side-slip angle (Deg)                       .000
+     Freestream velocity (m/s)                   20.000
+     Requested solver iterations                 500
+     Solver convergence limit                     1.000E-05
+     Force solver to run all iterations           F
+     Time increment (sec)                        1.000
+     Solver model:                               Incompressible
+     Solver mode:                                Steady
+     Reference velocity (m/s)                    20.000
+     Reference length (m)                        .345
+     Reference area (m^2)                        1.822
+     Altitude (ft)                               .000
+                                                  
+     Wake refinement size (% average mesh size)  1000.000
+     Reynolds Number                             474985.
+     Coordinate frame for analysis:              MOMENT_REF
+     Current solver iteration number:            91
+     ----------------------------------------------------------------------------------------------------
+     Surface, Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz
+     ----------------------------------------------------------------------------------------------------
+     Semiala,-0.0200,+0.0000,+0.5748,+0.5767,+0.0077,+0.0125,+0.0000,-0.1993,+0.0000
+     Total,-0.0200,+0.0000,+0.5748,+0.5767,+0.0077,+0.0125,+0.0000,-0.1993,+0.0000
+     ----------------------------------------------------------------------------------------------------
+     Force Units: Coefficients
+     Moment Units: Coefficients
+     Software : Flightstream version 26.1, build #5012026
+     Company  : Altair
+     Date: 10/4/2026, Time: 1038 hours (local)

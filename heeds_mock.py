@@ -24,6 +24,8 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import fs_driver  # noqa: E402  (solo per l'ordine delle colonne: fs_driver.result_keys)
 SHOW = ["status", "CL", "CD", "CMy", "L_over_D", "L_N", "D_N", "wall_s"]
 
 
@@ -120,9 +122,12 @@ def main(argv=None):
         print(f"  Design_{i:03d}: " + ", ".join(f"{n}={v:g}" for n, v in zip(names, values)), flush=True)
         rows.append(run_design(i, names, values, a, config))
 
-    keys = []
+    # colonne fisse: design, codice di uscita, tempo, poi le chiavi di results.txt nell'ordine di
+    # RESULTS_SCHEMA (uguale per tutte le modalita'), poi eventuali extra e il motivo dello status
+    keys = ["design", "exit_code", "wall_s"] + fs_driver.result_keys()
     for r in rows:
-        keys += [k for k in r if k not in keys]
+        keys += [k for k in r if k not in keys and k != "reason"]
+    keys.append("reason")
     summary = os.path.join(a.out, "summary.csv")
     with open(summary, "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=keys)

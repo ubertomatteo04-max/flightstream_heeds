@@ -22,5 +22,7 @@
   "postproc": {"vtk_surfaces": [], "strip": [0.45, 0.55], "bin_width": 0.02,
                "xtr_threshold": 0.99, "te_window": [0.90, 0.98], "exclude_le": 0.05},
   "run": {"timeout_s": 1800, "save_fsm": false, "license_retries": 2, "license_wait_s": 60},
+  "heeds": {"success_statuses": [0],
+            "_nota": "codice di uscita 0 se lo status e in questa lista: [0] per l ottimizzazione, [0, 4] per DOE in cui H/cf non sono obiettivi"},
   "validation": {"CL": 0.5767, "CDi": 0.0077, "CDo": 0.0125, "CMy": -0.1993, "rel_tol": 0.01}
 }
