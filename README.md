@@ -127,6 +127,16 @@ FlightStream (che in `-hidden` altrimenti resterebbe aperto fino al timeout), as
 tentativo. Se fallisce anche l'ultimo: `status = 6`. Con i valori di default (2 nuovi tentativi,
 60 s) un design senza licenza si chiude in circa 3 × 15 s + 2 × 60 s ≈ 3 minuti.
 
+**Processi.** Prima di ogni tentativo il driver controlla che non ci sia già un FlightStream attivo
+(aspetta fino a 10 s; poi status 6, oppure lo chiude se `run.kill_stale_flightstream = true`). Durante
+il run registra l'albero dei processi (in `run_info.txt`: "processi del run"); al timeout o con la
+licenza mancante chiude l'albero con `taskkill /T /F` e verifica che non resti nessun processo del
+run. Percorsi con spazi nelle cartelle di lavoro: verificati con run reali di `fixed` e `ccs_wing`.
+Per simulare una licenza mancante solo in un processo di prova servono **due** variabili:
+`ALTAIR_LICENSE_PATH=<server inesistente>` e `ALM_HHWU=F` (la licenza di questo PC è Altair One
+"hosted HWU", con il token in `%LOCALAPPDATA%\.altair_licensing`, e ignora la sola
+`ALTAIR_LICENSE_PATH`).
+
 ## heeds_mock.py: simulare HEEDS
 
 ```
@@ -167,7 +177,7 @@ Test automatici (senza FlightStream): `python -m unittest discover -s tests -v` 
 | 0 | ok | sì |
 | 1 | errore generico o di setup (file mancante, chiave non ammessa in params.txt, `fluid.density` mancante, coefficienti incompleti, dry-run) | no |
 | 2 | timeout (`run.timeout_s`) | no |
-| 6 | licenza FlightStream non disponibile, anche dopo `run.license_retries` nuovi tentativi: **non** è un errore del design, si può rilanciare | no |
+| 6 | FlightStream non disponibile: licenza (anche dopo `run.license_retries` nuovi tentativi) oppure un `FlightStream.exe` già attivo prima del lancio (GUI aperta, processo orfano; PID in `run_info.txt`). **Non** è un errore del design, si può rilanciare | no |
 | 3 | solver non convergente (o convergenza non verificabile dal log) | sì, solo per diagnosi |
 | 5 | risultati non fisici (CD ≤ 0, CDo < 0, valori non finiti) | sì, solo per diagnosi |
 | 4 | H/cf non estraibili (CL/CD validi) | sì |
@@ -239,6 +249,8 @@ Le chiavi che iniziano con `_` sono commenti. Esempi: `case_semiala_fixed.json`,
 | `wing_frame` | assi dell'ala per le metriche di separazione: `{"chord_axis": "+x", "span_axis": "+y", "up_axis": "+z"}` (corda dal bordo d'attacco al bordo d'uscita, apertura dalla radice all'estremità, verso il dorso), opzionali `span_root_m` (default 0: si usano le facce con coordinata in apertura ≥ radice, cioè una semiala; le facce specchiate sono escluse) e `n_strips` (strisce in apertura, default 60). Assente o `null` = le cinque metriche di separazione valgono -999 (es. fusoliera); un valore non valido = status 1 |
 | `postproc.sep_cf`, `le_xc`, `lo_te_xc`, `x_sep_eta`, `h_attached_xc_max` | (con `wing_frame`) soglia di separazione (cella separata se cf < −sep_cf, default 1e-5), x/c del bordo d'attacco per `sep_frac_up_le` (0,15), x/c del bordo d'uscita per `sep_frac_lo_te` (0,8), strisce usate per `x_sep_up` (η 0,05–0,95), x/c massimo per `H_max_attached_up` (0,95) |
 | `run.timeout_s`, `run.save_fsm` | tempo massimo per FlightStream (per tentativo); salvare `case.fsm` nella cartella del design |
+| `run.flightstream_process_names` | nomi dei processi di FlightStream per il controllo prima del lancio e la pulizia dopo (default `["FlightStream.exe"]`: in un run `-hidden` del 26.1 c'è un solo processo, senza figli) |
+| `run.kill_stale_flightstream` | `false` (default): se c'è già un FlightStream attivo il run non parte e dà status 6; `true`: il driver lo chiude (anche la GUI, senza salvare) e poi lancia. Il driver non chiude mai altri processi se non è `true` |
 | `run.license_retries`, `run.license_wait_s` | nuovi tentativi se la licenza non è disponibile (default 2, oltre al primo) e attesa prima di ognuno (default 60 s); poi `status = 6` |
 | `heeds.success_statuses` | status per cui il processo esce con codice 0 (default `[0]`; es. `[0, 4]` nei DOE). Un valore non valido = status 1 |
 | `validation` | valori del run di riferimento per `--validate` (CL, CDi, CDo, CMy, `Re_ref`, `iterations`, tolleranza relativa `rel_tol`) |
@@ -295,8 +307,5 @@ alla separazione su corpi tozzi. `Sref` e `Lref` vanno scelti per il nuovo corpo
   oppure se il solver si ferma prima di `solver.iterations` con residui finiti.
 - Unità di `ORIGIN_*` in `EDIT_COORDINATE_SYSTEM` non documentate: l'origine viene comunque
   reimpostata con `SET_COORDINATE_SYSTEM_ORIGIN … METER`.
-- Percorsi con spazi: driver, `run_fs.bat` e `heeds_mock.py --root` li gestiscono (test), ma lo script
-  FlightStream scrive i percorsi senza virgolette e il manuale non dice nulla: da provare con un run
-  reale prima di usare in HEEDS una cartella di studio con spazi.
 - Fisica: a 20 m/s il Reynolds sulla corda (≈ 4,7·10⁵) è sotto il campo del modello transizionale
   (5·10⁵–1,5·10⁶); H e cf sono indicatori comparativi.

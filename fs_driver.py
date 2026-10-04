@@ -9,7 +9,8 @@ Passi: params.txt -> geometry.py -> script FlightStream -> run senza interfaccia
 
 status in results.txt:  0 ok | 1 errore generico/setup | 2 timeout | 3 solver non convergente
                         4 H/cf non estraibili (CL/CD validi) | 5 risultati non fisici
-                        6 licenza FlightStream non disponibile (dopo run.license_retries tentativi)
+                        6 FlightStream non disponibile: licenza (dopo run.license_retries
+                          tentativi) oppure FlightStream gia' attivo prima del lancio
 Codice di uscita del processo: 0 se lo status e' in heeds.success_statuses del JSON (default [0]),
 altrimenti 1. Il motivo di uno status diverso da 0 e' scritto in run_info.txt, che termina sempre
 con la riga 'FS_DRIVER_RESULT status=<n> success=<0|1>' (anche ultima riga dell'output).
@@ -39,7 +40,7 @@ import traceback
 import geometry
 import postprocess as pp
 
-__version__ = "2.2.1"
+__version__ = "2.2.3"
 
 DEFAULTS = {
     "flightstream_exe": "",
@@ -71,7 +72,11 @@ DEFAULTS = {
     "wing_frame": None,
     # license_retries: nuovi tentativi (oltre al primo) se la licenza non e' disponibile,
     # ciascuno dopo license_wait_s secondi; se fallisce anche l'ultimo, status 6
-    "run": {"timeout_s": 1800, "save_fsm": False, "license_retries": 2, "license_wait_s": 60},
+    # flightstream_process_names: nomi dei processi di FlightStream (controllo prima del lancio e
+    # pulizia dopo); kill_stale_flightstream: se true, prima del lancio chiude i processi di
+    # FlightStream gia' attivi (GUI aperta, processi orfani); se false (default) il run da' status 6
+    "run": {"timeout_s": 1800, "save_fsm": False, "license_retries": 2, "license_wait_s": 60,
+            "flightstream_process_names": ["FlightStream.exe"], "kill_stale_flightstream": False},
     # codice di uscita del processo: 0 se lo status e' in success_statuses, altrimenti 1
     # ([0] per l'ottimizzazione, [0, 4] per DOE in cui H/cf non sono obiettivi)
     "heeds": {"success_statuses": [0]},
@@ -84,17 +89,26 @@ REQUIRED = ["CL", "CDi", "CDo", "CMy"]
 MISSING = -999
 STATUS_TEXT = {0: "ok", 1: "errore generico/setup", 2: "timeout", 3: "solver non convergente",
                4: "H/cf non estraibili (CL/CD validi)", 5: "risultati non fisici",
-               6: "licenza FlightStream non disponibile"}
+               6: "FlightStream non disponibile (licenza o processo gia' attivo)"}
 # Checkout della licenza in fs_stdout.txt: FlightStream prova le Altair units, poi EDU, poi la
 # licenza a feature. Se falliscono tutte, in modalita' -hidden resta aperto senza fare nulla.
 LICENSE_FAIL = "checking out altair units...not available"
 LICENSE_OK = ("success", "running script file")
 LICENSE_GRACE_S = 15      # attesa dopo "Not available": un fallback (EDU, feature) puo' ancora riuscire
 POLL_S = 1.0
+STALE_WAIT_S = 10         # prima del lancio: attesa che un FlightStream appena chiuso sparisca
 
 
-class LicenseUnavailable(Exception):
-    """Il checkout della licenza di FlightStream e' fallito (status 6)."""
+class FlightStreamUnavailable(Exception):
+    """FlightStream non utilizzabile ora, per motivi della macchina e non del design (status 6)."""
+
+
+class LicenseUnavailable(FlightStreamUnavailable):
+    """Il checkout della licenza di FlightStream e' fallito."""
+
+
+class FlightStreamBusy(FlightStreamUnavailable):
+    """C'e' gia' un processo FlightStream attivo (GUI aperta o processo orfano)."""
 FILES = {"script": "fs_script.txt", "ccs": "case_ccs.csv", "loads": "loads.txt",
          "vtk": "surface.vtk", "log": "fs_log.txt", "stdout": "fs_stdout.txt",
          "results": "results.txt", "info": "run_info.txt", "profiles": "bl_profiles.csv",
@@ -412,13 +426,120 @@ def find_exe(cli_exe, cfg):
                      "FLIGHTSTREAM_EXE o 'flightstream_exe' nel JSON")
 
 
-def _kill_tree(proc):
-    """Termina FlightStream e gli eventuali processi figli."""
-    if platform.system() == "Windows":
-        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+def list_processes():
+    """Processi attivi come {pid: (ppid, nome)}. Windows: snapshot Toolhelp32 via ctypes (solo
+    libreria standard). Altri sistemi: {} (controlli sui processi disattivati)."""
+    if os.name != "nt":
+        return {}
+    import ctypes
+    from ctypes import wintypes
+
+    class PROCESSENTRY32W(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
+                    ("th32ProcessID", wintypes.DWORD), ("th32DefaultHeapID", ctypes.c_size_t),
+                    ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
+                    ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", ctypes.c_long),
+                    ("dwFlags", wintypes.DWORD), ("szExeFile", ctypes.c_wchar * 260)]
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    k32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    k32.Process32FirstW.argtypes = k32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    snap = k32.CreateToolhelp32Snapshot(0x2, 0)                      # TH32CS_SNAPPROCESS
+    if snap in (None, wintypes.HANDLE(-1).value):
+        return {}
+    out, e = {}, PROCESSENTRY32W()
+    e.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+    try:
+        ok = k32.Process32FirstW(snap, ctypes.byref(e))
+        while ok:
+            out[e.th32ProcessID] = (e.th32ParentProcessID, e.szExeFile)
+            ok = k32.Process32NextW(snap, ctypes.byref(e))
+    finally:
+        k32.CloseHandle(snap)
+    return out
+
+
+def _descendants(root, procs):
+    """PID di root e di tutti i suoi discendenti in un'istantanea di list_processes()."""
+    tree, changed = {root}, True
+    while changed:
+        new = {pid for pid, (ppid, _) in procs.items() if ppid in tree and pid not in tree}
+        tree |= new
+        changed = bool(new)
+    return tree
+
+
+def running_flightstream(names):
+    """Processi attivi con uno dei nomi indicati (confronto senza maiuscole): [(pid, nome)]."""
+    wanted = {n.lower() for n in names}
+    return sorted((pid, nm) for pid, (_, nm) in list_processes().items() if nm.lower() in wanted)
+
+
+def _taskkill(pid, tree=True):
+    """Chiude un processo (e con tree il suo albero) senza chiedere conferma."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F"] + (["/T"] if tree else []) + ["/PID", str(pid)],
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
-        proc.kill()
+        try:
+            os.kill(pid, 9)
+        except OSError:
+            pass
+
+
+def preflight_flightstream(run_cfg, notes):
+    """Prima del lancio: nessun FlightStream deve essere attivo (GUI aperta, processo orfano,
+    run di un altro design). Si aspetta fino a STALE_WAIT_S che sparisca; poi, se
+    kill_stale_flightstream e' attivo, lo si chiude, altrimenti FlightStreamBusy (status 6).
+    I processi vengono chiusi solo con kill_stale_flightstream = true."""
+    names = run_cfg["flightstream_process_names"]
+    t0 = time.time()
+    found = running_flightstream(names)
+    while found and time.time() - t0 < STALE_WAIT_S:
+        time.sleep(POLL_S)
+        found = running_flightstream(names)
+    if not found:
+        return
+    desc = ", ".join(f"{nm} PID {pid}" for pid, nm in found)
+    if not run_cfg["kill_stale_flightstream"]:
+        raise FlightStreamBusy(f"FlightStream gia' attivo ({desc}): non lanciato. Chiudere la GUI o i "
+                               "processi orfani, oppure run.kill_stale_flightstream = true")
+    for pid, _ in found:
+        _taskkill(pid)
+    time.sleep(2 * POLL_S)
+    left = running_flightstream(names)
+    notes.append(f"kill_stale_flightstream: chiusi {desc}" + (f"; ancora attivi: {left}" if left else ""))
+    if left:
+        raise FlightStreamBusy(f"FlightStream ancora attivo dopo la chiusura forzata: {left}")
+
+
+def _close_run_tree(proc, seen, notes, force):
+    """Dopo un run: con force chiude l'albero di FlightStream (taskkill /T /F); poi chiude i processi
+    visti nell'albero durante il run e ancora vivi con lo stesso nome (sono del run) e verifica che
+    non ne resti nessuno."""
+    if force and proc.poll() is None:
+        _taskkill(proc.pid)
+    try:
+        proc.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        _taskkill(proc.pid, tree=False)
+    for _ in range(3):
+        alive = list_processes()
+        left = {pid: nm for pid, nm in seen.items()
+                if pid != proc.pid and pid in alive and alive[pid][1] == nm}
+        if not left:
+            return
+        for pid in left:
+            _taskkill(pid)
+        time.sleep(POLL_S)
+    notes.append(f"ATTENZIONE: processi del run ancora attivi dopo la chiusura: {left}")
+
+
+def _kill_tree(proc):
+    """Termina FlightStream e gli eventuali processi figli (taskkill /T /F)."""
+    _taskkill(proc.pid)
     proc.wait()
 
 
@@ -434,40 +555,51 @@ def license_state(stdout_path):
     return "failed" if LICENSE_FAIL in text else "pending"
 
 
-def run_flightstream(exe, script, workdir, timeout):
-    """Lancia FlightStream senza interfaccia e controlla fs_stdout.txt mentre gira. Solleva
-    subprocess.TimeoutExpired se non finisce entro timeout e LicenseUnavailable se il checkout
-    della licenza fallisce (in entrambi i casi FlightStream viene chiuso)."""
+def run_flightstream(exe, script, workdir, timeout, notes):
+    """Lancia FlightStream senza interfaccia, controlla fs_stdout.txt e registra l'albero dei
+    processi mentre gira. Solleva subprocess.TimeoutExpired se non finisce entro timeout e
+    LicenseUnavailable se il checkout della licenza fallisce: in entrambi i casi l'albero viene
+    chiuso e si verifica che non resti nessun processo del run."""
     cmd = [exe, "-hidden", "-script", script] if platform.system() == "Windows" else [exe, script]
     log("Comando: " + " ".join(f'"{x}"' if " " in x else x for x in cmd))
     stdout_path = os.path.join(workdir, FILES["stdout"])
-    t0, lic, fail_t = time.time(), "pending", None
+    t0, lic, fail_t, seen = time.time(), "pending", None, {}
     with open(stdout_path, "w", encoding="utf-8", errors="replace") as out:
         proc = subprocess.Popen(cmd, cwd=workdir, stdout=out, stderr=subprocess.STDOUT)
-        while proc.poll() is None:
-            now = time.time()
-            if now - t0 > timeout:
-                _kill_tree(proc)
-                raise subprocess.TimeoutExpired(cmd, timeout)
-            if lic != "ok":
-                lic = license_state(stdout_path)
-                fail_t = (fail_t or now) if lic == "failed" else None
-                if fail_t is not None and now - fail_t >= LICENSE_GRACE_S:
-                    _kill_tree(proc)
-                    raise LicenseUnavailable("licenza FlightStream non disponibile (fs_stdout.txt: "
-                                             "'Checking out Altair units...Not available')")
-            time.sleep(POLL_S)
+        try:
+            while proc.poll() is None:
+                procs = list_processes()
+                seen.update({pid: procs[pid][1] for pid in _descendants(proc.pid, procs) if pid in procs})
+                now = time.time()
+                if now - t0 > timeout:
+                    raise subprocess.TimeoutExpired(cmd, timeout)
+                if lic != "ok":
+                    lic = license_state(stdout_path)
+                    fail_t = (fail_t or now) if lic == "failed" else None
+                    if fail_t is not None and now - fail_t >= LICENSE_GRACE_S:
+                        raise LicenseUnavailable("licenza FlightStream non disponibile (fs_stdout.txt: "
+                                                 "'Checking out Altair units...Not available')")
+                time.sleep(POLL_S)
+        except BaseException:
+            _close_run_tree(proc, seen, notes, force=True)
+            raise
+        finally:
+            if seen:
+                notes.append("processi del run: " + ", ".join(f"{nm} (PID {pid})" for pid, nm in sorted(seen.items())))
+    _close_run_tree(proc, seen, notes, force=False)
     log(f"FlightStream terminato in {time.time() - t0:.1f} s (codice {proc.returncode}).")
     return proc.returncode
 
 
 def run_with_license_retries(exe, script, workdir, run_cfg, notes):
     """run_flightstream con nuovi tentativi se la licenza non e' disponibile: license_retries
-    tentativi oltre al primo, ciascuno dopo license_wait_s secondi; poi LicenseUnavailable."""
+    tentativi oltre al primo, ciascuno dopo license_wait_s secondi; poi LicenseUnavailable.
+    Prima di ogni tentativo: nessun FlightStream gia' attivo (preflight_flightstream)."""
     retries, wait = int(run_cfg["license_retries"]), float(run_cfg["license_wait_s"])
     for attempt in range(retries + 1):
+        preflight_flightstream(run_cfg, notes)
         try:
-            return run_flightstream(exe, script, workdir, run_cfg["timeout_s"])
+            return run_flightstream(exe, script, workdir, run_cfg["timeout_s"], notes)
         except LicenseUnavailable:
             notes.append(f"licenza non disponibile al tentativo {attempt + 1} di {retries + 1}")
             if attempt == retries:
@@ -711,8 +843,8 @@ def run(a, cfg, workdir, res, notes):
         if not ref["Sref"] or not ref["Lref"]:
             raise ValueError("Sref/Lref mancanti: con questa modalita' vanno nel JSON "
                              "(reference.sref_m2, reference.lref_m)")
-        if " " in workdir:
-            notes.append("percorso di lavoro con spazi: se FlightStream non trova i file, usare cartelle senza spazi")
+        # percorsi con spazi nello script FlightStream (senza virgolette): verificati con run reali
+        # fixed e ccs_wing in C:\fs test\... (FlightStream 26.1, 2026-10-04)
         with open(files["script"], "w", encoding="utf-8") as f:
             f.write(build_script(cfg, case, geo, files, ref))
         log(f"Script scritto: {files['script']}")
@@ -751,6 +883,9 @@ def main(argv=None):
     except LicenseUnavailable as e:
         status = 6
         notes.append(f"{e}: FlightStream chiuso, nessun risultato")
+    except FlightStreamBusy as e:
+        status = 6
+        notes.append(f"{e}")
     except Exception as e:
         status = 1
         notes.append(f"{type(e).__name__}: {e}")

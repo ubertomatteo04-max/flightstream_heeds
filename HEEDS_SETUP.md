@@ -42,10 +42,16 @@ percorsi con spazi.
 - FlightStream: conviene impostare la variabile d'ambiente `FLIGHTSTREAM_EXE`, oppure riempire
   `flightstream_exe` nel JSON, così non dipende da cosa vede HEEDS. Su questo PC la ricerca
   automatica trova `C:\Program Files\Altair\2026.1\flightstream\FlightStream.exe`.
-- Cartelle di lavoro con spazi: il driver e `run_fs.bat` le gestiscono (provato), ma lo script di
-  FlightStream scrive i percorsi senza virgolette (es. `FILE C:\...\Design 1\...\case_ccs.csv`) e il
-  manuale 26.1 non dice nulla sugli spazi: **DA VERIFICARE con un run reale**. Finché non è verificato,
-  meglio una cartella di studio HEEDS senza spazi.
+- Cartelle di lavoro con spazi: **supportate**. Verificato il 2026-10-04 con run reali (FlightStream
+  26.1) di `fixed` e `ccs_wing` in `C:\fs test\DOE aoa\Design_1\Analysis_1` e `C:\fs test\DOE ccs\...`:
+  status 0, CL 0,5767, Re 474985. Lo script FlightStream scrive i percorsi senza virgolette (anche
+  `FILE C:\fs test\...\case_ccs.csv`) e FlightStream li legge correttamente.
+- **Un solo FlightStream alla volta.** Prima di ogni lancio il driver controlla che non ci sia già un
+  processo `FlightStream.exe` (GUI aperta, processo orfano, un altro design): aspetta fino a 10 s e,
+  se c'è ancora, **non lancia** e dà `status = 6` con i PID in `run_info.txt`. Quindi in HEEDS il numero
+  di design eseguiti in parallelo deve essere 1, e la GUI di FlightStream va chiusa durante lo studio.
+  Con `run.kill_stale_flightstream = true` nel JSON il driver chiude da solo quei processi (anche la
+  GUI, con le modifiche non salvate): default `false`, non attivarlo se sullo stesso PC si usa la GUI.
 - Timeout HEEDS: maggiore del tempo massimo del driver, così è il driver a gestire il timeout e a
   scrivere `status = 2` o `6` *(campo di timeout in HEEDS: da verificare)*. Caso peggiore:
   `(license_retries + 1) × timeout_s + license_retries × license_wait_s` (default 3 × 1800 + 2 × 60 s);
@@ -87,7 +93,7 @@ chiavi non pertinenti alla modalità valgono -999. Le chiavi nuove si aggiungono
 | # | Risposta | Unità | Significato |
 |---|---|---|---|
 | 1 | `schema_version` | – | versione dello schema di results.txt (oggi 2); cambia a ogni modifica dell'elenco o dell'ordine delle chiavi |
-| 2 | `status` | – | 0 ok, 1 errore, 2 timeout, 3 non convergente, 4 H/cf non estraibili, 5 non fisico, 6 licenza non disponibile |
+| 2 | `status` | – | 0 ok, 1 errore, 2 timeout, 3 non convergente, 4 H/cf non estraibili, 5 non fisico, 6 FlightStream non disponibile (licenza, oppure FlightStream già attivo prima del lancio) |
 | 3–4 | `converged`, `iterations` | – | 1 se convergente; iterazioni eseguite |
 | 5–8 | `CL`, `CD`, `CDi`, `CDo` | – | coefficienti di portanza e resistenza (`CD = CDi + CDo`), riferiti a `Sref_m2` |
 | 9–11 | `CMx`, `CMy`, `CMz` | – | coefficienti di momento attorno a `reference.moment_point_m` |
@@ -115,7 +121,8 @@ Senza `wing_frame` nel JSON le righe 30–34 valgono -999. Da non usare come vin
 - Con status 3, 4 o 5 i coefficienti sono scritti lo stesso, per diagnosi. Senza vincolo
   l'ottimizzatore li userebbe come buoni.
 - Con status 2 (timeout) e 6 (licenza FlightStream non disponibile anche dopo
-  `run.license_retries` nuovi tentativi) non ci sono risultati e il design **non** è da
+  `run.license_retries` nuovi tentativi, oppure FlightStream già attivo prima del lancio) non ci sono
+  risultati e il design **non** è da
   considerare cattivo: dipende dalla macchina. Il vincolo `status = 0` lo esclude comunque; a fine
   studio conviene rilanciare i design con status 2 o 6 (motivo in `run_info.txt`). Se l'algoritmo di
   HEEDS penalizza i design falliti, molti status 6 possono falsare la ricerca: controlla la licenza
@@ -139,6 +146,18 @@ Senza `wing_frame` nel JSON le righe 30–34 valgono -999. Da non usare come vin
 Con `chord_scale` (o un'altra variabile geometrica) `Sref` cambia da un design all'altro: i
 coefficienti non sono confrontabili tra design. Usa come obiettivi `L_over_D` oppure `L_N` e `D_N`
 (vedi README, "Nota per HEEDS").
+
+## Checklist del primo Evaluation Only
+
+- [ ] Il comando parte (variante A o B di "Comando") e nella cartella del design compaiono
+      `fs_script.txt`, `results.txt`, `run_info.txt`.
+- [ ] `results.txt` comincia con `schema_version = 2` e HEEDS legge gli stessi valori del file.
+- [ ] Il design risulta riuscito con codice di uscita 0 e "File contains" `schema_version = 2`.
+- [ ] **Stop di HEEDS:** avviare un design, premere Stop mentre FlightStream gira, poi aprire Gestione
+      attività e cercare `FlightStream.exe`. *(Se HEEDS chiude anche i processi figli del comando:
+      DA VERIFICARE.)* Se resta un `FlightStream.exe` orfano, **chiuderlo a mano** (Gestione attività →
+      Termina attività) prima di riavviare lo studio: altrimenti il design successivo dà `status = 6`
+      ("FlightStream già attivo", PID in `run_info.txt`).
 
 ## Ordine di lavoro consigliato
 
