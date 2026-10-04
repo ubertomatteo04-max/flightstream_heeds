@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 """
-heeds_mock.py - Simula HEEDS in locale: per ogni design crea una cartella Design_NNN, ci scrive
-params.txt, lancia fs_driver.py dentro quella cartella (come fara' HEEDS) e legge results.txt.
-Alla fine scrive summary.csv con una riga per design.
+heeds_mock.py - Simula HEEDS in locale: per ogni design crea una cartella, ci scrive params.txt,
+lancia il comando come fara' HEEDS (run_fs.bat --config <JSON assoluto>, con la cartella del
+design come cartella corrente) e legge results.txt. Alla fine scrive summary.csv.
 
 Esempi:
     python heeds_mock.py --config case_semiala_fixed.json --var aoa=0,2,4,6,8
     python heeds_mock.py --config case_semiala_ccs.json --var aoa=2,6 --var chord_scale=0.9,1.1
     python heeds_mock.py --config case_semiala_fixed.json --var aoa=0,4 --dry-run
+    python heeds_mock.py --config case_semiala_fixed.json --var aoa=4 --root "C:\\HEEDS prove\\studio 1"
 
+Cartelle: senza --root, <--out>\\Design_NNN (default mock_runs); con --root, come HEEDS:
+<root>\\Design_<N>\\<--analysis> (default Analysis_1; nomi esatti di HEEDS: DA VERIFICARE), anche
+fuori dal repo e con spazi nel percorso.
+Argomenti dopo "--" vanno al driver tali e quali (solo per prove, es. -- --extract-only --loads ...).
 Piu' opzioni --var producono tutte le combinazioni (piano fattoriale completo).
 Le variabili non indicate prendono il valore del blocco 'case' del JSON.
-ATTENZIONE: all'avvio vengono cancellate le cartelle Design_NNN gia' presenti in --out.
+ATTENZIONE: all'avvio vengono cancellate le cartelle dei design gia' presenti (Design_NNN in --out,
+Design_<N> in --root).
 """
 import argparse
 import csv
@@ -59,30 +65,47 @@ def first_reason(design_dir):
     return notes[0] if notes else ""
 
 
-def clean_designs(out):
-    """Cancella le cartelle Design_NNN di una simulazione precedente."""
-    for name in os.listdir(out):
-        if re.fullmatch(r"Design_\d{3,}", name) and os.path.isdir(os.path.join(out, name)):
-            shutil.rmtree(os.path.join(out, name))
+def clean_designs(base, pattern):
+    """Cancella le cartelle dei design di una simulazione precedente (solo quelle che rispettano pattern)."""
+    for name in os.listdir(base):
+        if re.fullmatch(pattern, name) and os.path.isdir(os.path.join(base, name)):
+            shutil.rmtree(os.path.join(base, name))
+
+
+def design_dir(i, a):
+    """Cartella in cui gira il design i: <out>/Design_NNN oppure, con --root, <root>/Design_<i>/<analysis>."""
+    if a.root:
+        return os.path.join(a.root, f"Design_{i}", a.analysis)
+    return os.path.join(a.out, f"Design_{i:03d}")
+
+
+def driver_command(a, config):
+    """Comando come in HEEDS: run_fs.bat (Windows) con il JSON assoluto; altrove python fs_driver.py."""
+    if os.name == "nt":
+        cmd = [os.path.join(HERE, "run_fs.bat"), "--config", config]
+    else:
+        cmd = [sys.executable, os.path.join(HERE, "fs_driver.py"), "--config", config]
+    if a.dry_run:
+        cmd.append("--dry-run")
+    if a.exe:
+        cmd += ["--exe", a.exe]
+    return cmd + a.driver_args
 
 
 def run_design(i, names, values, a, config):
-    """Crea Design_NNN, scrive params.txt, lancia il driver e restituisce la riga per il CSV."""
-    d = os.path.join(a.out, f"Design_{i:03d}")
+    """Crea la cartella del design, scrive params.txt, lancia il comando con la cartella del design
+    come cartella corrente e restituisce la riga per il CSV."""
+    d = design_dir(i, a)
     os.makedirs(d)
     with open(os.path.join(d, "params.txt"), "w", encoding="utf-8") as f:
         f.write("# scritto da heeds_mock.py (HEEDS sostituira' i valori a destra dell'uguale)\n")
         for n, v in zip(names, values):
             f.write(f"{n} = {v:g}\n")
-    cmd = [sys.executable, os.path.join(HERE, "fs_driver.py"), "--config", config]
-    if a.dry_run:
-        cmd.append("--dry-run")
-    if a.exe:
-        cmd += ["--exe", a.exe]
     with open(os.path.join(d, "driver_stdout.txt"), "w", encoding="utf-8", errors="replace") as out:
         t0 = time.time()
-        rc = subprocess.run(cmd, cwd=d, stdout=out, stderr=subprocess.STDOUT).returncode
-    row = {"design": os.path.basename(d), "exit_code": rc, "wall_s": f"{time.time() - t0:.1f}"}
+        rc = subprocess.run(driver_command(a, config), cwd=d, stdout=out, stderr=subprocess.STDOUT).returncode
+    name = f"Design_{i}" if a.root else os.path.basename(d)
+    row = {"design": name, "exit_code": rc, "wall_s": f"{time.time() - t0:.1f}"}
     row.update({n: f"{v:g}" for n, v in zip(names, values)})
     row.update(read_results(os.path.join(d, "results.txt")))
     row["reason"] = first_reason(d)
@@ -106,12 +129,23 @@ def main(argv=None):
     ap.add_argument("--out", default="mock_runs", help="cartella dei design (default: mock_runs)")
     ap.add_argument("--dry-run", action="store_true", help="genera solo gli script, non lancia FlightStream")
     ap.add_argument("--exe", help="percorso di FlightStream da passare al driver")
-    a = ap.parse_args(argv)
+    ap.add_argument("--root", help="cartella dello studio con la struttura di HEEDS (Design_<N>\\<analysis>), "
+                                   "anche fuori dal repo e con spazi; summary.csv va qui")
+    ap.add_argument("--analysis", default="Analysis_1", help="nome della cartella dell'analisi con --root")
+    argv = sys.argv[1:] if argv is None else list(argv)
+    extra = argv[argv.index("--") + 1:] if "--" in argv else []
+    a = ap.parse_args(argv[:argv.index("--")] if "--" in argv else argv)
+    a.driver_args = extra
 
     config = os.path.abspath(a.config)
-    a.out = os.path.abspath(a.out)
-    os.makedirs(a.out, exist_ok=True)
-    clean_designs(a.out)
+    if a.root:
+        a.root = a.out = os.path.abspath(a.root)
+        os.makedirs(a.root, exist_ok=True)
+        clean_designs(a.root, r"Design_\d+")
+    else:
+        a.out = os.path.abspath(a.out)
+        os.makedirs(a.out, exist_ok=True)
+        clean_designs(a.out, r"Design_\d{3,}")
     vars_ = [parse_var(v) for v in a.var]
     names = [n for n, _ in vars_]
     combos = list(itertools.product(*[vals for _, vals in vars_]))
@@ -119,7 +153,7 @@ def main(argv=None):
 
     rows = []
     for i, values in enumerate(combos, 1):
-        print(f"  Design_{i:03d}: " + ", ".join(f"{n}={v:g}" for n, v in zip(names, values)), flush=True)
+        print(f"  {os.path.relpath(design_dir(i, a), a.out)}: " + ", ".join(f"{n}={v:g}" for n, v in zip(names, values)), flush=True)
         rows.append(run_design(i, names, values, a, config))
 
     # colonne fisse: design, codice di uscita, tempo, poi le chiavi di results.txt nell'ordine di

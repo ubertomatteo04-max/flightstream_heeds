@@ -6,7 +6,8 @@ senza interfaccia → legge carichi, log e VTK → scrive `results.txt`.
 
 | File | Cosa fa | Chi lo modifica |
 |---|---|---|
-| `fs_driver.py` | l'unico comando che HEEDS lancia | nessuno |
+| `run_fs.bat` | il comando che HEEDS lancia: fissa l'interprete Python (riga `set "PY=..."`) e chiama `fs_driver.py` | chi installa su un altro PC |
+| `fs_driver.py` | il driver: params.txt → FlightStream → results.txt | nessuno |
 | `geometry.py` | come si apre o costruisce la geometria | **chi cambia geometria** |
 | `postprocess.py` | lettura di carichi, log e VTK | nessuno |
 | `heeds_mock.py` | simula HEEDS in locale (più design, riepilogo CSV) | nessuno |
@@ -132,11 +133,20 @@ tentativo. Se fallisce anche l'ultimo: `status = 6`. Con i valori di default (2 
 python heeds_mock.py --config case_semiala_fixed.json --var aoa=0,2,4,6,8
 python heeds_mock.py --config case_semiala_ccs.json --var aoa=2,6 --var chord_scale=0.9,1.1
 python heeds_mock.py --config case_semiala_fixed.json --var aoa=0,4 --dry-run
+python heeds_mock.py --config case_semiala_fixed.json --var aoa=4 --root "C:\HEEDS prove\studio 1"
 ```
 Crea `mock_runs\Design_001`, `Design_002`, … (più `--var` = tutte le combinazioni), in ognuno scrive
-`params.txt` e lancia `fs_driver.py` in quella cartella, come farà HEEDS. Il riepilogo va in
-`mock_runs\summary.csv` e a schermo. Con `--dry-run` genera solo gli script. **All'avvio cancella le
-cartelle `Design_NNN` già presenti in `--out`.**
+`params.txt` e lancia **`run_fs.bat --config <JSON assoluto>` con la cartella del design come cartella
+corrente**, come farà HEEDS. Con `--root` usa la struttura di HEEDS, `<root>\Design_<N>\Analysis_1`
+(nome dell'analisi con `--analysis`; nomi esatti di HEEDS DA VERIFICARE), anche fuori dal repo e con
+spazi nel percorso. Il riepilogo va in `summary.csv` (in `--out` o `--root`) e a schermo, con il codice
+di uscita di ogni design. Con `--dry-run` genera solo gli script. Gli argomenti dopo `--` vanno al
+driver tali e quali (solo per prove, es. `-- --extract-only --loads ...`). **All'avvio cancella le
+cartelle dei design già presenti (`Design_NNN` in `--out`, `Design_<N>` in `--root`).**
+
+Test automatici (senza FlightStream): `python -m unittest discover -s tests -v` — schema di
+`results.txt`, contratto di successo, `run_fs.bat` (processo diretto, `cmd /c`, `call`, PowerShell) e
+`heeds_mock.py --root` in una cartella con spazi.
 
 ## Contratto con HEEDS (`results.txt`)
 
@@ -285,6 +295,8 @@ alla separazione su corpi tozzi. `Sref` e `Lref` vanno scelti per il nuovo corpo
   oppure se il solver si ferma prima di `solver.iterations` con residui finiti.
 - Unità di `ORIGIN_*` in `EDIT_COORDINATE_SYSTEM` non documentate: l'origine viene comunque
   reimpostata con `SET_COORDINATE_SYSTEM_ORIGIN … METER`.
-- Percorsi con spazi: lo script FlightStream non usa virgolette; meglio cartelle senza spazi.
+- Percorsi con spazi: driver, `run_fs.bat` e `heeds_mock.py --root` li gestiscono (test), ma lo script
+  FlightStream scrive i percorsi senza virgolette e il manuale non dice nulla: da provare con un run
+  reale prima di usare in HEEDS una cartella di studio con spazi.
 - Fisica: a 20 m/s il Reynolds sulla corda (≈ 4,7·10⁵) è sotto il campo del modello transizionale
   (5·10⁵–1,5·10⁶); H e cf sono indicatori comparativi.

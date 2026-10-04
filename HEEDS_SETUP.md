@@ -13,18 +13,39 @@ HEEDS. Prima di HEEDS, prova tutto con `heeds_mock.py` (vedi README).
 
 ## Comando
 
+HEEDS esegue il comando con cartella corrente = la cartella dell'analisi del design, dove copia
+`params.txt`. Il comando è `run_fs.bat` (accanto a `fs_driver.py`), che fissa l'interprete Python,
+trova `fs_driver.py` con `%~dp0`, inoltra gli argomenti e restituisce il codice di uscita del driver.
+
+Variante A (prima scelta):
 ```
-"C:\Users\UtenteLocale\AppData\Local\Programs\Python\Python313\python.exe" "<CARTELLA>\fs_driver.py" --config "<CARTELLA>\case_semiala_fixed.json"
+"<CARTELLA>\run_fs.bat" --config "<CARTELLA>\case_semiala_fixed.json"
 ```
+Variante B, se HEEDS non esegue un `.bat` direttamente (virgolette esterne obbligatorie: `cmd /c`
+toglie la prima e l'ultima):
+```
+cmd /c ""<CARTELLA>\run_fs.bat" --config "<CARTELLA>\case_semiala_fixed.json""
+```
+**DA VERIFICARE al primo Evaluation Only** quale delle due serve. Entrambe sono provate in locale
+(`tests/test_run_fs.py`): codice di uscita 0 e 1 propagati, anche con cartella di lavoro e JSON in
+percorsi con spazi.
 
 - `<CARTELLA>` = percorso assoluto di questa cartella (oggi
-  `C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline`). Il JSON va scelto in base al caso.
-- Il percorso completo di `python.exe` evita sorprese se HEEDS non vede lo stesso PATH del
-  terminale (sul tuo PC: quello indicato sopra; su un altro PC: `python -c "import sys; print(sys.executable)"`).
+  `C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline`). Il JSON va scelto in base al caso
+  e va indicato con il percorso **assoluto**: tutti i percorsi del JSON (.fsm, CCS, eseguibile di
+  FlightStream) sono risolti rispetto alla cartella del JSON, mai rispetto alla cartella corrente.
+- Tutti gli output (script, carichi, log, VTK, `results.txt`, `run_info.txt`) vanno nella cartella
+  corrente del design; il driver non scrive file fuori da quella cartella.
+- L'interprete Python è fissato in testa a `run_fs.bat` (`set "PY=..."`, oggi
+  `C:\Users\UtenteLocale\AppData\Local\Programs\Python\Python313\python.exe`): così non dipende dal PATH
+  che vede HEEDS. Su un altro PC: `python -c "import sys; print(sys.executable)"` e correggere la riga.
 - FlightStream: conviene impostare la variabile d'ambiente `FLIGHTSTREAM_EXE`, oppure riempire
   `flightstream_exe` nel JSON, così non dipende da cosa vede HEEDS. Su questo PC la ricerca
   automatica trova `C:\Program Files\Altair\2026.1\flightstream\FlightStream.exe`.
-- Meglio cartelle di lavoro **senza spazi** nel percorso.
+- Cartelle di lavoro con spazi: il driver e `run_fs.bat` le gestiscono (provato), ma lo script di
+  FlightStream scrive i percorsi senza virgolette (es. `FILE C:\...\Design 1\...\case_ccs.csv`) e il
+  manuale 26.1 non dice nulla sugli spazi: **DA VERIFICARE con un run reale**. Finché non è verificato,
+  meglio una cartella di studio HEEDS senza spazi.
 - Timeout HEEDS: maggiore del tempo massimo del driver, così è il driver a gestire il timeout e a
   scrivere `status = 2` o `6` *(campo di timeout in HEEDS: da verificare)*. Caso peggiore:
   `(license_retries + 1) × timeout_s + license_retries × license_wait_s` (default 3 × 1800 + 2 × 60 s);
