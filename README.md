@@ -1,4 +1,4 @@
-# fs_pipeline v2.3.2: FlightStream in batch, pronto per HEEDS
+# fs_pipeline v2.4.0: FlightStream in batch, pronto per HEEDS
 
 Script Python (solo libreria standard, Python ≥ 3.8) che, in una cartella di design:
 legge `params.txt` → prepara la geometria → scrive lo script FlightStream → lancia FlightStream
@@ -13,8 +13,11 @@ FlightStream chiusa** (un solo FlightStream alla volta, altrimenti `status = 6`)
 **1. Prova senza FlightStream (pochi secondi):**
 ```
 cd C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline
+preflight.bat
 python -m unittest discover -s tests -v
 ```
+`preflight.bat` (prima di ogni studio) deve finire con `PREFLIGHT OK`: nessun FlightStream attivo,
+interpreti Python, JSON e percorsi, `heeds_inputs` coerenti con lo schema, `--dry-run` con `run_fs.bat`.
 
 **2. Un design come lo lancerà HEEDS** (cartella del design = cartella corrente, `params.txt` dentro):
 ```
@@ -43,6 +46,10 @@ heeds_report.bat --study "C:\Users\UtenteLocale\Desktop\heeds\semiala_fixed\semi
 ```
 Risultati in `<studio>\report\`. `heeds_report.bat` usa il Python di HEEDS (ha matplotlib); con
 `python heeds_report.py ...` senza matplotlib si ottengono solo CSV ed elenco degli scartati.
+Verifica di uno sweep contro il DOE del driver (scrive `report\verifica.md`, codice di uscita 0/1):
+```
+heeds_report.bat --study "...\semiala_Study_2" --check-against-mock mock_runs\summary.csv --expect-n 7 --expect-aoa 0,2,4,6,8,10,12
+```
 
 **5. HEEDS:** seguire `HEEDS_SETUP.md` (procedura passo-passo del primo Evaluation Only, con la tabella
 delle 39 righe di `results.txt` da taggare e i file `heeds_inputs\<modalità>\params.txt` / `results.txt`
@@ -73,7 +80,9 @@ da aggiungere in HEEDS).
 | `params.txt` | i valori del singolo design (li scrive HEEDS) | HEEDS |
 | `baseline/fixed`, `baseline/ccs` | `params_baseline.txt` e `results_baseline.txt` di run reali a 4° | si rigenerano se cambia lo schema |
 | `heeds_inputs/fixed`, `heeds_inputs/ccs` | le stesse baseline rinominate `params.txt` e `results.txt`: i file da aggiungere e taggare in HEEDS (HEEDS legge l'output con lo stesso nome del file taggato) | si ricopiano dalle baseline |
+| `preflight.py`, `preflight.bat` | controlli prima di uno studio (non lancia FlightStream); il `.bat` usa l'interprete di `run_fs.bat` | nessuno |
 | `HEEDS_SETUP.md` | procedura passo-passo per HEEDS | — |
+| `DEMO.md` | presentazione di una pagina per il team (numeri dello Study_2 da inserire; grafici in `demo/`) | — |
 | `tests/` | test automatici senza FlightStream (`python -m unittest discover -s tests -v`) | chi cambia il driver |
 | `diagnostica/` | script di analisi dei VTK (strato limite), non usati dal driver | — |
 | `_old/` | versione precedente (`fs_pipeline.py`), solo come riferimento | — |

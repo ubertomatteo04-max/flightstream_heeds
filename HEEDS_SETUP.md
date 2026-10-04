@@ -56,6 +56,7 @@ esattamente `heeds_inputs\fixed\results.txt`.
       esecuzione remota o con un altro account). Prima di uno studio lungo apri Altair License Utility
       e verifica il login. *Durata del token di Altair One: DA VERIFICARE.* Se il token scade durante lo
       studio, i design danno `status = 6` (licenza) dopo circa 3 minuti ciascuno.
+- [ ] `<REPO>\preflight.bat` finisce con `PREFLIGHT OK` (vedi "Prima e dopo uno studio").
 - [ ] Test locali superati: `python -m unittest discover -s tests -v` nella cartella `<REPO>`.
 - [ ] Facoltativo: `python heeds_mock.py --config case_semiala_fixed.json --var aoa=4 --root "C:\HEEDS prove\mock"`
       deve dare status 0 e CL 0,5767 (stesso comando che userà HEEDS).
@@ -339,6 +340,58 @@ projectFolder`): se cambia `heeds_inputs\…\params.txt` nel repo, va ricaricato
   attività) prima di riavviare lo studio: altrimenti il design successivo dà `status = 6` ("FlightStream
   già attivo", PID in `run_info.txt`). `run.kill_stale_flightstream = true` nel JSON lo farebbe in
   automatico, ma chiuderebbe anche una GUI aperta senza salvare: default `false`.
+
+## Test di un design in errore con `--dry-run`
+
+Serve a provare la Success condition senza lanciare FlightStream (≈ 1 s a design).
+1. Nella Analysis_1 (Execution tab) aggiungi `--dry-run` in fondo alle **Command options**:
+   `--config "<REPO>\case_semiala_fixed.json" --dry-run`.
+2. Lancia "Evaluate baseline design" (o un design qualsiasi).
+3. Esito atteso dal driver, nella cartella del design (`HEEDS_0\Design<N>\Analysis_1`):
+   - `fs_script.txt` scritto, FlightStream **non** lanciato (niente `fs_stdout.txt`, `loads.txt`, `surface.vtk`);
+   - `results.txt` completo: `schema_version = 2`, `status = 1`, coefficienti `-999`, eco di `aoa`;
+   - `run_info.txt`: `status = 1 (errore generico/setup)`, `- dry-run: FlightStream non lanciato`, ultima
+     riga `FS_DRIVER_RESULT status=1 success=0`;
+   - codice di uscita **1** (in `<studio>\.aux\Process_execution_actions.log`, riga `JC-Dn:end`).
+4. Esito atteso in HEEDS: con **"Compare analysis successful return value" = 0** il design è un
+   **errore**; con Error Designs = Rename la cartella diventa `Design<N>-ERROR` *(testo esatto di
+   `*STATUS` in `Analysis.log` e comportamento di "Evaluate baseline design": DA VERIFICARE)*.
+   **Senza** il controllo del codice di uscita HEEDS accetterebbe il design: `results.txt` è leggibile e
+   contiene anche `schema_version = 2`, quindi la sola condizione "File contains" **non** basta a scartarlo
+   (CL = -999 entrerebbe nello studio). Per questo servono entrambi i controlli del passo 6.
+5. **Togli `--dry-run`** dalle Command options prima di lanciare lo studio vero.
+
+## Prima e dopo uno studio: preflight e verifica
+
+- **Prima:** `<REPO>\preflight.bat` (non lancia FlightStream). Controlla: nessun `FlightStream.exe` attivo,
+  interpreti Python di `run_fs.bat` e `heeds_report.bat`, JSON e percorsi interni (.fsm, CCS, FlightStream),
+  `heeds_inputs\*\results.txt` con lo `schema_version` e le chiavi del driver, un `--dry-run` con
+  `run_fs.bat` per ciascun JSON. Deve finire con `PREFLIGHT OK` (codice di uscita 0).
+- **Dopo lo sweep su aoa:**
+  ```
+  <REPO>\heeds_report.bat --study "C:\Users\UtenteLocale\Desktop\heeds\semiala_fixed\semiala_Study_2" ^
+      --check-against-mock "<REPO>\mock_runs\summary.csv" --expect-n 7 --expect-aoa 0,2,4,6,8,10,12
+  ```
+  Confronta ogni design con il DOE mock allo stesso aoa (CL, CD, CMy, L_over_D, tolleranza relativa
+  1e-4, `--rtol`), conta i design, controlla i valori di aoa, i design `-ERROR` e che non resti un
+  FlightStream attivo. Scrive `report\verifica.md`, `report.csv`, i grafici, e finisce con `VERIFICA OK`
+  (codice 0) oppure `VERIFICA FALLITA: <motivo>` (codice 1). Legge soltanto le cartelle di HEEDS; scrive
+  solo in `<studio>\report\` (o in `--out`).
+
+## Lanciare uno studio da riga di comando (alternativa, non provata)
+
+Dal manuale (§9 "Run the study using the commands", PDF p. 1084–1085; opzioni da riga di comando PDF p. 22):
+```
+"C:\Program Files\Siemens\SimcenterHEEDS-2604.0\MDO\Win64\HEEDSMDO.exe" -b "C:\Users\UtenteLocale\Desktop\heeds\semiala_fixed\semiala.heeds" -cmd=RunStudy -study=Study_2
+```
+- `-b`: *"Runs in batch mode. This option also executes other command line options and quits."*
+- `-cmd=RunStudy [-study=name]`: *"Runs the current or specified study. If running in batch mode Simcenter
+  HEEDS waits for the study to complete. After the study is complete, a StudyReport.out file is written."*
+  Senza `-study` gira lo studio corrente.
+- Per scrivere solo i file di input dello studio: `-cmd=Pre.Results.StudyWrite` (o `-cmd=WriteStudy`).
+- **DA VERIFICARE:** se funziona con la GUI aperta sullo stesso progetto (file `.heeds` già aperto, licenza
+  HEEDS per una seconda istanza). Prudenza: salvare e chiudere la GUI prima. Il percorso di `HEEDSMDO.exe`
+  è quello dell'installazione 2604.0 di questo PC.
 
 ## Checklist (prima del DOE)
 
