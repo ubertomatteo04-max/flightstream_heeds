@@ -234,7 +234,7 @@ def slope_line(points, slope, x_max_fit=8.0):
     return sum(cl - slope * math.radians(x) for x, cl in sel) / len(sel)
 
 
-def make_plots(out, rows, mock, xkey, slope, label):
+def make_plots(out, rows, mock, xkey, slope, label, slope_label="retta"):
     """CL-alpha e L/D-alpha in PNG. Restituisce l'elenco dei file scritti ([] senza matplotlib)."""
     try:
         import matplotlib
@@ -254,12 +254,12 @@ def make_plots(out, rows, mock, xkey, slope, label):
     if cl0 is not None:
         allx = [p[0] for p in pts]
         xx = [min(allx + [0.0]), max(allx + [12.0])]
-        ax.plot(xx, [cl0 + slope * math.radians(x) for x in xx], "--", color="0.45", lw=1.2,
-                label=f"retta {slope:g} /rad (CL0 = {cl0:.4f})")
+        ax.plot(xx, [cl0 + slope * math.radians(x) for x in xx], "--", color="black", lw=1.3, zorder=5,
+                label=f"{slope_label}: {slope:g} /rad (CL0 = {cl0:.4f})")
     if mock:
         ax.plot([p[0] for p in mock], [p[1] for p in mock], "s", ms=9, mfc="none", mec="tab:orange",
                 label="DOE mock (heeds_mock.py)")
-    ax.plot(xs, cls, "o-", color="tab:blue", ms=6, label=label)
+    ax.plot(xs, cls, "o-", color="tab:blue", ms=6, lw=0.8, label=label)
     ax.set_xlabel(f"{xkey} [deg]")
     ax.set_ylabel("CL")
     ax.set_title("CL in funzione dell'incidenza")
@@ -298,6 +298,7 @@ def main(argv=None):
     ap.add_argument("--no-mock", action="store_true", help="non sovrapporre i punti del DOE mock")
     ap.add_argument("--x", default="aoa", help="variabile in ascissa (default: aoa)")
     ap.add_argument("--slope", type=float, default=SLOPE_HELMBOLD, help="pendenza della retta [1/rad]")
+    ap.add_argument("--slope-label", default="Helmbold (AR 15,3)", help="nome della retta nella legenda")
     ap.add_argument("--label", default="studio HEEDS", help="etichetta dei punti dello studio nei grafici")
     ap.add_argument("--check-against-mock", metavar="SUMMARY_CSV",
                     help="verifica: confronta CL, CD, CMy, L_over_D con il DOE mock allo stesso --x; "
@@ -335,7 +336,7 @@ def main(argv=None):
     print(f"DOE mock sovrapposto: {len(mock)} punti" + (f" ({mock_path})" if mock else ""))
     if slope is not None:
         print(f"dCL/d{a.x} (0-8 gradi, minimi quadrati): {slope:.4f} /rad = {math.radians(1) * slope:.5f} /deg")
-    files = make_plots(out, rows, mock, a.x, a.slope, a.label) if rows else []
+    files = make_plots(out, rows, mock, a.x, a.slope, a.label, a.slope_label) if rows else []
     written = [os.path.join(out, "report.csv"), os.path.join(out, "scartati.txt")] + files
     rc = 0
     if a.check_against_mock:

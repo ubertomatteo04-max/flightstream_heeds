@@ -41,7 +41,7 @@ import traceback
 import geometry
 import postprocess as pp
 
-__version__ = "2.4.0"
+__version__ = "2.4.1"
 
 DEFAULTS = {
     "flightstream_exe": "",

@@ -1,7 +1,7 @@
 # FlightStream + HEEDS: catena automatica per l'ottimizzazione di una semiala
 
-> Bozza per la demo. I campi `⟦…⟧` si riempiono con i numeri dello Study_2 (sweep HEEDS su aoa) dopo
-> `heeds_report.bat --check-against-mock …` (file `report\verifica.md` dello studio).
+> Numeri dello Study_2 (sweep HEEDS su aoa, 2026-10-04) verificati con
+> `heeds_report.bat --check-against-mock …`: dettaglio in [`demo/verifica_Study_2.md`](demo/verifica_Study_2.md).
 
 ## Obiettivo e cosa è stato fatto
 
@@ -36,8 +36,13 @@ di un errore è sempre in `run_info.txt`.
 | HEEDS, Evaluation Only (Study_1) | 0,5767 | 0,0202 | −0,1993 | 28,5495 | 474985 |
 
 Sweep HEEDS su aoa = 0, 2, …, 12° (Study_2, 7 design) confrontato design per design con il DOE del
-driver: ⟦VERIFICA OK / FALLITA⟧, ⟦n⟧ design su 7, differenza relativa massima ⟦…⟧ (tolleranza 1e-4),
-⟦0⟧ design in errore. Tempo per design ⟦…⟧ s (≈ 2 s di HEEDS, ≈ 2 s del driver, il resto FlightStream).
+driver: **VERIFICA OK**, **7/7** design, differenza relativa massima **0** su CL, CD, CMy e L/D (tolleranza
+1e-4), 0 design in errore. Tempo per design **31 s** in media (27–40 s): ≈ 30 s di FlightStream, ≈ 1 s di
+driver e HEEDS; studio intero 3 min 40 s.
+
+Gestione degli errori provata in HEEDS: un design con codice di uscita ≠ 0 viene **scartato** ("The return
+value (1) for the analysis command did not match the specified value (0). This design analysis will be
+marked as an error.").
 
 ## Risultati
 
@@ -45,9 +50,10 @@ driver: ⟦VERIFICA OK / FALLITA⟧, ⟦n⟧ design su 7, differenza relativa ma
 |---|---|
 | ![CL-alpha](demo/CL_alpha.png) | ![L/D-alpha](demo/LD_alpha.png) |
 
-- dCL/dα (0–8°): ⟦…⟧ /rad dallo sweep HEEDS; 5,515 /rad dal DOE del driver; teoria dell'ala finita
-  (AR = 15,3): Helmbold 5,515 /rad, linea portante 5,557 /rad.
-- L/D massimo ⟦28,55⟧ a ⟦4⟧°.
+- dCL/dα (0–8°, minimi quadrati): **5,515 /rad** (0,0963 /deg) dallo sweep HEEDS, identico al DOE del
+  driver; teoria dell'ala finita (AR = 15,3): Helmbold 5,515 /rad (scarto < 0,01 %), linea portante
+  ellittica 5,557 /rad (−0,8 %).
+- L/D massimo **28,55 a 4°** tra i punti calcolati (passo 2°).
 
 ## Limiti attuali
 

@@ -1,4 +1,4 @@
-# fs_pipeline v2.4.0: FlightStream in batch, pronto per HEEDS
+# fs_pipeline v2.4.1: FlightStream in batch, pronto per HEEDS
 
 Script Python (solo libreria standard, Python ≥ 3.8) che, in una cartella di design:
 legge `params.txt` → prepara la geometria → scrive lo script FlightStream → lancia FlightStream

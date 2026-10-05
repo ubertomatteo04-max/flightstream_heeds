@@ -1,4 +1,4 @@
-# HEEDS: procedura (Evaluation Only riuscito, DOE su aoa)
+# HEEDS: procedura (Evaluation Only e sweep su aoa riusciti)
 
 Procedura passo-passo per collegare la pipeline a Simcenter HEEDS MDO 2604.0 sul PC dove gira
 FlightStream. Fonte dei nomi di menu e opzioni: il manuale installato
@@ -29,6 +29,14 @@ Verificato in quell'occasione:
 - Lo Study_1 di default è **Parameter Optimization (SHERPA, 35 valutazioni)**: senza un obiettivo dà
   "The study contains setup errors" e non parte nemmeno "Evaluate baseline design". Risolto con
   l'obiettivo Maximize `L_over_D`. Per i DOE usare un altro tipo di studio (passo 8).
+
+## Esito dello sweep su aoa (Study_2, 2026-10-04)
+
+Studio `semiala_Study_2` ("Evaluation Only - User prescribed", Sweep di aoa 0–12 con 7 valori): 7 design,
+0 errori, 220 s (31 s a design, di cui ≈ 30 s FlightStream). `heeds_report.bat --check-against-mock`:
+**VERIFICA OK**, differenza 0 con il DOE del driver su CL, CD, CMy, L/D (`demo\verifica_Study_2.md`).
+Controllo del codice di uscita attivo (`successReturnValue: 0` in `Process1.in`) e provato con un design in
+errore. Valori scritti da HEEDS in `params.txt`: 6 cifre significative (`aoa = 0.00000`, `aoa = 10.0000`).
 
 ## File da usare
 
@@ -118,10 +126,11 @@ Nell'**Execution tab → Analysis Execution Options → Advanced Options** dell'
   complete. Simcenter HEEDS tries to post-process the results at that time. The design will not be marked
   as an error unless there is an error in extracting the results. You must define a success condition if
   you expect some designs to exceed the Max execution time but want those designs to be marked as
-  errors."* Il manuale non dice se il comando viene chiuso (**DA VERIFICARE**): il design diventa errore
-  grazie alla Success condition del passo 6 (all'avvio il driver cancella il vecchio `results.txt`, quindi
-  manca `schema_version = 2`). **Dopo un caso del genere controllare Gestione attività** e chiudere a mano
-  un eventuale `FlightStream.exe`, altrimenti i design successivi danno `status = 6`.
+  errors."* Il manuale non dice se il comando viene chiuso (**DA VERIFICARE**), né come viene trattato il
+  controllo del codice di uscita (passo 6a) se il comando non è ancora terminato (**DA VERIFICARE**). La
+  condizione "File contains" `schema_version = 2` (passo 6b) lo marcherebbe di sicuro come errore: all'avvio
+  il driver cancella il vecchio `results.txt`. **Dopo un caso del genere controllare Gestione attività** e
+  chiudere a mano un eventuale `FlightStream.exe`, altrimenti i design successivi danno `status = 6`.
 - **Default decimal delimiter = Period** (opzioni nella GUI: "From portal", "Period", "Comma"; il default
   "From portal" è il valore del portale). Il PC è in italiano; `params.txt` e `results.txt` usano il punto e
   il driver rifiuta `4,0` con `status = 1`.
@@ -133,33 +142,35 @@ Nell'**Execution tab → Analysis Execution Options → Advanced Options** dell'
 - **If a constraint is infeasible** = "Continue to next analysis" (default); **Capture analysis output**
   spuntato: l'output del driver finisce in `POST_0\Design<N>\<Analysis>\Tool_<Analysis>_output.msg`.
 
-## Passo 6 — Success condition (DA CONFIGURARE: nel primo Evaluation Only non c'era)
+## Passo 6 — Success condition
 
-Senza Success condition HEEDS accetta un design se riesce a leggere le risposte (nel `.rpt` dello studio:
-`successCondition: NONE`). Per il manuale (PDF p. 161) è proprio il caso da evitare: risultati parziali letti
-come buoni. Nel manuale il controllo del codice di uscita e la condizione su file sono due meccanismi
-**distinti**, entrambi nella stessa Analysis; vanno usati tutti e due.
+Senza controlli HEEDS accetta un design se riesce a leggere le risposte. Per il manuale (PDF p. 161) è
+proprio il caso da evitare: risultati parziali letti come buoni. Il driver scrive `results.txt` anche in
+caso di errore (con `-999`), quindi **il controllo del codice di uscita è indispensabile**.
 
-**6a. Codice di uscita** (Advanced Options, PDF p. 126, passo 7 della procedura):
-1. Process → seleziona `Analysis_1` → **Execution tab → Analysis Execution Options → Advanced Options**.
-2. Spunta **"Compare analysis successful return value"** e inserisci **0**.
-   (`run_fs.bat` restituisce 0 solo se lo status è in `heeds.success_statuses` del JSON, default `[0]`.)
+**6a. Codice di uscita — verificato (Study_2).** La casella **non** è nelle Advanced Options (come si poteva
+capire dal manuale, PDF p. 126) ma nel dialogo delle condizioni:
+1. Process → seleziona `Analysis_1` → **Execution tab** → riquadro **Analysis Execution Options** → campo
+   **Conditions**.
+2. Nel dialogo **Conditions**, **Condition Event = Success** → spunta **"Compare analysis successful return
+   value"** e inserisci **0**.
+3. Nei file dello studio compare come `successReturnValue: 0` (`Process1.in`, `HEEDS0.rpt`).
+   `run_fs.bat` restituisce 0 solo se lo status è in `heeds.success_statuses` del JSON (default `[0]`).
+4. Provato: un design con codice di uscita 1 è marcato errore, con il messaggio *"The return value (1) for the
+   analysis command did not match the specified value (0). This design analysis will be marked as an
+   error."*
 
-**6b. Condizione su `results.txt`** (Managing conditions, PDF p. 154–161):
+**6b. Condizione su `results.txt` (facoltativa, non ancora configurata).** Nello Study_2 `successCondition:
+NONE`: oggi c'è solo il controllo del codice di uscita, che basta per gli errori del driver. La condizione
+"File contains" `schema_version = 2` serve a scartare i design se un giorno cambia lo schema di
+`results.txt` (Managing conditions, PDF p. 154–161):
 1. Nel gruppo **Tools** del ribbon **Process** clicca **Manage Conditions**.
-2. Nel dialogo **Manage Conditions** clicca **Add Condition** e scegli il tipo **File contains** (*"Searches a
-   file for text. If the text is found, the condition is marked as true."*). File: `results.txt`; testo:
-   `schema_version = 2`. *(Come si sceglie il file e se il campo accetta gli spazi del testo: DA VERIFICARE;
-   in alternativa cercare `schema_version`, che c'è solo nella riga 1.)*
-3. **Close**.
-4. Seleziona `Analysis_1` → **Execution tab → Analysis Execution Options → campo Conditions** → si apre il
-   dialogo **Conditions** → in **Condition Event** scegli **Success** → seleziona la condizione creata.
-5. **Evaluate in**: **Analysis folder** (default per Success) e Compute resource **Local**.
-
-Effetto combinato (AND): il design è riuscito solo se il codice di uscita è 0 **e** `results.txt` contiene
-`schema_version = 2`; altrimenti è un errore (*"If the condition is not met, the analysis is marked as an
-error"*, PDF p. 129). *Che il confronto del codice di uscita e la Success condition si sommino così:
-dal manuale è implicito (ognuno marca errore da solo), DA VERIFICARE con la prova di errore della checklist.*
+2. **Add Condition** → tipo **File contains** (*"Searches a file for text. If the text is found, the condition
+   is marked as true."*). File: `results.txt`; testo: `schema_version = 2`. *(Come si sceglie il file e se il
+   campo accetta gli spazi: DA VERIFICARE; in alternativa cercare `schema_version`.)*
+3. **Close**, poi nello stesso dialogo **Conditions** (Condition Event **Success**) seleziona la condizione;
+   **Evaluate in** = **Analysis folder**, Compute resource **Local**.
+*Che casella e condizione si combinino in AND: DA VERIFICARE (dal manuale ognuna marca errore da sola).*
 
 **Alternativa tutta in una condizione** (operatori and/or tra gli elementi, PDF p. 156 e 158: *"The second and
 subsequent items in the list allow you to choose how the item is combined with the previous item:
@@ -257,28 +268,41 @@ valori si usa lo **Sweep** (dialogo **Define Variable Sweep**, PDF p. 935): *"A 
 all possible combinations of the selected variables"* — cioè un fattoriale completo su N livelli — con
 colonne **Min**, **Max**, **# values**, **Increment** e **Total number of designs**.
 
-**Procedura consigliata: nuovo studio "Evaluation Only - User prescribed"** (PDF p. 916–918, 929–933). Il
-manuale lo indica per *"Run design sweeps by varying one or more parameters"* e *"Objectives and constraints
-are not required"*. Creare uno studio nuovo lascia intatto Study_1.
-1. **Study tab → freccia accanto a Create Study** (oppure tasto destro sul progetto → Create Study).
-2. Dialogo **Create New Study**: Study name `Study_2`; Study type **Evaluation Only - User prescribed**;
-   **Copy data from** = `Study_1` con **Copy variable definitions** e **Copy response goals**. **OK**.
-3. Nel nuovo studio: **Study tab → Methods** → definire i design (PDF p. 932: *"In an Evaluation Only - User
-   prescribed study, select the Study tab and then click Methods. You can define the designs here."*).
-4. Clicca **Sweep** → nel dialogo **Define Variable Sweep** lascia spuntato solo `aoa`: **Min = 0**,
-   **Max = 12**, **# values = 7** (Increment calcolato = 2). **Total number of designs = 7**. Conferma con
-   **Replace** (sostituisce i design esistenti) *(passaggi esatti nel dialogo: DA VERIFICARE)*.
-5. Opzioni del passo 9, poi Run. La cartella dello studio sarà
-   `C:\Users\UtenteLocale\Desktop\heeds\semiala_fixed\semiala_Study_2` (nome = `<Progetto>_<Studio>`).
+**Procedura verificata (Study_2, 2026-10-04): studio "Evaluation Only - User prescribed".** Il manuale lo
+indica per *"Run design sweeps by varying one or more parameters"* e non richiede obiettivi (PDF p. 929).
+Uno studio nuovo lascia intatto Study_1.
+1. Scheda **Study** → freccetta di **Create Study** → **Evaluation Only - User prescribed** → nome
+   `Study_2` → **OK** (copia delle definizioni delle variabili da Study_1).
+2. Scheda **Methods** → in basso a sinistra **+ Design Set**. Finché non esiste un set, i pulsanti
+   **Design**, **Sweep** e **Fill** sono grigi.
+3. **Sweep...** → `aoa`: **Min = 0**, **Max = 12**, **# values = 7** → **Replace** → 7 righe `sweep_1` …
+   `sweep_7`.
+4. Lasciare **NON spuntate** le colonne **Map** (arrotonderebbe i valori ai livelli della Resolution della
+   variabile: con Resolution 101 su 0–12 il passo è 0,12°) e **Show Resp.** (HEEDS userebbe risposte
+   inserite a mano invece di lanciare l'analisi).
+5. Nella pagina dello studio, riquadri **Saved Designs** e **Run Options** (non in More options): Success
+   designs = **All designs**, Error designs = **Rename**, spunta **"Do not stop HEEDS for a design-based
+   error"** (passo 9).
+6. **Run.** Cartella dello studio: `C:\Users\UtenteLocale\Desktop\heeds\semiala_fixed\semiala_Study_2`
+   (nome = `<Progetto>_<Studio>`). Nei file: `method: DesignSweep`, `saveDesigns: All`,
+   `saveErrorDesigns: saveAndRename`, `dontStopOnDesignErrors: yes`.
+7. **Rilanciare uno studio che ha già risultati:** HEEDS chiede **Unlock**, poi mostra le opzioni di run
+   (es. **Erase existing study results**). Rilanciando, HEEDS cancella `HEEDS_0` e `POST_0` dello studio:
+   prima copiare quello che serve (o usare `heeds_report.bat --out` fuori dalla cartella dello studio).
+
+Script registrato da HEEDS per questi passaggi (`...\heeds\semiala_fixed\record_study2.py`): usa
+`project.createStudy(..., studyType='EVAL', fromStudy=Study1, copyVariables=1)`,
+`Study2.createUserDesignSet('Set_1')`, `Set1.sweep(aoa=(0, 12, 7), replace=True)`,
+`Study2.set('saveErrorDesigns', 'saveAndRename')`, `Study2.set('RunOpt_SkipFirstEvalCheck', True)`,
+`project.save(...)`, `Study2.run(results=None, wait=True)`.
 
 **Alternativa DOE** (stesso risultato): Create Study con Study type **DOE - Screening and Data
 Characterization** → **Study tab → Methods** → spunta **Factor** per `aoa` → Sampling Method **Custom sampling
 (RSM only)** → **Define Designs** → **Sweep** come al punto 4 (PDF p. 932–933 e 1005).
 
 **Cambiare il tipo di Study_1** invece di crearne uno nuovo: sul Study tab c'è la lista **Study type** (PDF
-p. 890–891); funziona allo stesso modo, ma rilanciare uno studio **cancella le sue cartelle `HEEDS_0` e
-`POST_0`** (visto in `.aux\Process_execution_actions.log`: "Remove previous HEEDS folder"). Meglio uno
-studio nuovo per ogni DOE.
+p. 890–891); ma rilanciare uno studio **cancella le sue cartelle `HEEDS_0` e `POST_0`** (punto 7 sopra).
+Meglio uno studio nuovo per ogni DOE.
 
 **Resolution** (solo per gli studi di ottimizzazione, PDF p. 728): sul **Parameters tab**, campo
 **Resolution** della variabile continua; *"The resolution defines a set of evenly spaced values between and
@@ -288,7 +312,7 @@ per uno SHERPA su aoa a passi di 2° basterebbe Resolution 7. Non serve per lo s
 Dopo il DOE su aoa: sweep su `chord_scale` (progetto con `case_semiala_ccs.json` e `heeds_inputs\ccs\`),
 poi **SHERPA** (Parameter Optimization) con obiettivo `L_over_D` (oppure `L_N`/`D_N`), non CL.
 
-## Passo 9 — Opzioni per il DOE (Study tab, PDF p. 892–894)
+## Passo 9 — Opzioni per il DOE (pagina dello studio, riquadri Saved Designs e Run Options; PDF p. 892–894)
 
 - **Saved Designs → Success designs = All designs** (*"Saves the input and output files for all designs
   that are evaluated in the study run"*). Altre opzioni: None, Best designs, All best designs, All feasible
@@ -344,8 +368,12 @@ projectFolder`): se cambia `heeds_inputs\…\params.txt` nel repo, va ricaricato
 ## Test di un design in errore con `--dry-run`
 
 Serve a provare la Success condition senza lanciare FlightStream (≈ 1 s a design).
-1. Nella Analysis_1 (Execution tab) aggiungi `--dry-run` in fondo alle **Command options**:
+1. Nella Analysis_1 (Execution tab) aggiungi `--dry-run` in fondo alle **Command options**, **dopo la
+   virgoletta di chiusura del percorso e separato da uno spazio**:
    `--config "<REPO>\case_semiala_fixed.json" --dry-run`.
+   Sbagliato: `--config "<REPO>\case_semiala_fixed.json--dry-run"` (il driver cerca un file che non esiste;
+   è successo nella prova del 2026-10-04: codice di uscita 1 e design in errore lo stesso, ma per il motivo
+   sbagliato).
 2. Lancia "Evaluate baseline design" (o un design qualsiasi).
 3. Esito atteso dal driver, nella cartella del design (`HEEDS_0\Design<N>\Analysis_1`):
    - `fs_script.txt` scritto, FlightStream **non** lanciato (niente `fs_stdout.txt`, `loads.txt`, `surface.vtk`);
@@ -353,9 +381,10 @@ Serve a provare la Success condition senza lanciare FlightStream (≈ 1 s a desi
    - `run_info.txt`: `status = 1 (errore generico/setup)`, `- dry-run: FlightStream non lanciato`, ultima
      riga `FS_DRIVER_RESULT status=1 success=0`;
    - codice di uscita **1** (in `<studio>\.aux\Process_execution_actions.log`, riga `JC-Dn:end`).
-4. Esito atteso in HEEDS: con **"Compare analysis successful return value" = 0** il design è un
-   **errore**; con Error Designs = Rename la cartella diventa `Design<N>-ERROR` *(testo esatto di
-   `*STATUS` in `Analysis.log` e comportamento di "Evaluate baseline design": DA VERIFICARE)*.
+4. Esito in HEEDS (**verificato**): con "Compare analysis successful return value" = 0 il design è un
+   **errore**, messaggio *"The return value (1) for the analysis command did not match the specified value
+   (0). This design analysis will be marked as an error."*; con Error Designs = Rename la cartella diventa
+   `Design<N>-ERROR`.
    **Senza** il controllo del codice di uscita HEEDS accetterebbe il design: `results.txt` è leggibile e
    contiene anche `schema_version = 2`, quindi la sola condizione "File contains" **non** basta a scartarlo
    (CL = -999 entrerebbe nello studio). Per questo servono entrambi i controlli del passo 6.
@@ -401,8 +430,8 @@ Dal manuale (§9 "Run the study using the commands", PDF p. 1084–1085; opzioni
       `results.txt`, `run_info.txt`.
 - [ ] `results.txt` comincia con `schema_version = 2`; HEEDS legge gli stessi valori del file e di
       `heeds_inputs\fixed\results.txt`.
-- [ ] Success condition configurata (passo 6: codice di uscita 0 e "File contains" `schema_version = 2`) e
-      design riuscito.
+- [x] Controllo del codice di uscita (passo 6a) configurato e provato con un design in errore.
+- [ ] Facoltativo: condizione "File contains" `schema_version = 2` (passo 6b).
 - [ ] Prova di errore: una chiave sbagliata in `params.txt` (es. `aoa_x = 4`) → `status = 1`, codice di
       uscita 1, design rinominato `Design<X>-ERROR`.
 - [ ] Test dello Stop (passo 10): nessun `FlightStream.exe` orfano, oppure chiuso a mano.
