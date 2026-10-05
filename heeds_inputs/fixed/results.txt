@@ -1,4 +1,4 @@
-schema_version = 3
+schema_version = 4
 status = 0
 converged = 1
 iterations = 91
@@ -43,3 +43,7 @@ iterations_inviscid = 91
 iterations_viscous = 0
 converged_viscous = -999
 sep_marker_frac_up = 0
+cl_sec_max = 0.63591
+eta_cl_sec_max = 0.0588636
+cl_sec_root = 0.635807
+cl_sec_eta05 = 0.615943

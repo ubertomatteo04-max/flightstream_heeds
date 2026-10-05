@@ -28,7 +28,7 @@ cd /d "C:\HEEDS prove\Design_1\Analysis_1"
 echo %ERRORLEVEL%
 ```
 Atteso in 15–45 s: codice di uscita 0, `results.txt` uguale a `baseline\fixed\results_baseline.txt`
-(`schema_version = 3`, `status = 0`, CL 0,5767, CDi 0,0077, CDo 0,0125, CMy −0,1993, Re 474985).
+(`schema_version = 4`, `status = 0`, CL 0,5767, CDi 0,0077, CDo 0,0125, CMy −0,1993, Re 474985).
 Il motivo di uno status diverso da 0 è in `run_info.txt`, che termina con
 `FS_DRIVER_RESULT status=<n> success=<0|1>`.
 
@@ -240,8 +240,8 @@ Test automatici (senza FlightStream): `python -m unittest discover -s tests -v` 
   anche l'ultima riga stampata dal driver; `success = 1` se lo status è in `heeds.success_statuses` (cioè
   se il codice di uscita è 0). È l'alternativa al codice di uscita per la condizione "File contains"
   di HEEDS (cercare `success=1`).
-- `results.txt` comincia con `schema_version = 3`. Success condition in HEEDS: codice di uscita = 0
-  (verificato) e, facoltativa, "File contains" `schema_version = 3` in `results.txt` (vedi `HEEDS_SETUP.md`).
+- `results.txt` comincia con `schema_version = 4`. Success condition in HEEDS: codice di uscita = 0
+  (verificato) e, facoltativa, "File contains" `schema_version = 4` in `results.txt` (vedi `HEEDS_SETUP.md`).
 
 | status | Significato | Coefficienti scritti? |
 |---|---|---|
@@ -251,7 +251,7 @@ Test automatici (senza FlightStream): `python -m unittest discover -s tests -v` 
 | 6 | FlightStream non disponibile: licenza (anche dopo `run.license_retries` nuovi tentativi) oppure un `FlightStream.exe` già attivo prima del lancio (GUI aperta, processo orfano; PID in `run_info.txt`). **Non** è un errore del design, si può rilanciare | no |
 | 3 | solver non convergente (o convergenza non verificabile dal log); con `viscous_coupling` anche fase viscosa non convergente o assente nel log | sì, solo per diagnosi |
 | 5 | risultati non fisici (CD ≤ 0, CDo < 0, valori non finiti) | sì, solo per diagnosi |
-| 4 | H/cf non estraibili (CL/CD validi) | sì |
+| 4 | H/cf o carico in apertura non estraibili (CL/CD validi) | sì |
 
 Se valgono più condizioni insieme, conta la prima di questa tabella dall'alto (1, 2, 6, 3, 5, 4).
 Gli status 2 e 6 dipendono dalla macchina, non dal design: vale la pena rilanciare quei design.
@@ -276,24 +276,37 @@ nello stesso ordine per **tutte** le modalità; quelle non pertinenti valgono -9
 | strato limite | `xtr_up xtr_lo H_te_up H_te_lo H_max_up H_max_lo cf_min_up cf_min_lo area_frac_cf_neg H_max sep_max sep_frac_up_le x_sep_up H_max_attached_up x_H_max_attached_up sep_frac_lo_te` |
 | ingressi (eco) | `aoa velocity altitude sideslip chord_scale` |
 | viscoso (schema 3, v2.5.0) | `viscous_coupling separation_model iterations_inviscid iterations_viscous converged_viscous sep_marker_frac_up` |
+| apertura (schema 4, v2.6.0) | `cl_sec_max eta_cl_sec_max cl_sec_root cl_sec_eta05` |
 
 Il significato è in `HEEDS_SETUP.md`. **HEEDS legge le risposte per posizione.** Regole:
-- una chiave nuova si aggiunge **solo in fondo al file** (in coda all'ultima sezione, oggi "ingressi"):
+- una chiave nuova si aggiunge **solo in fondo al file** (in coda all'ultima sezione, oggi "apertura"):
   aggiungerla in coda a una sezione intermedia sposterebbe tutte le righe successive;
 - mai riordinare né togliere chiavi;
 - una variabile geometrica nuova (modalità nuova) va aggiunta in fondo a `RESULTS_SCHEMA`: se manca, il
   driver si ferma all'avvio invece di spostare le posizioni in silenzio;
 - **ogni modifica dello schema incrementa `SCHEMA_VERSION`** (scritto come `schema_version` nella prima
-  riga di `results.txt`): così HEEDS, se controlla `schema_version = 3`, rifiuta un results.txt con
+  riga di `results.txt`): così HEEDS, se controlla `schema_version = 4`, rifiuta un results.txt con
   un ordine diverso da quello taggato invece di leggere righe sbagliate;
 - `tests/test_schema.py` controlla che `fixed` e `ccs_wing` scrivano lo stesso elenco, che le
-  posizioni dello schema 3 non cambino e che la prima riga sia `schema_version = 3`
+  posizioni dello schema 4 non cambino (e le righe taggate 2, 5, 6, 10, 12) e che la prima riga sia `schema_version = 4`
   (`python -m unittest discover -s tests -v`).
 
-Lo schema 3 (v2.5.0) aggiunge in coda le 6 righe della sezione "viscoso" (40–45): le righe 1–39 sono quelle
+Lo schema 4 (v2.6.0) aggiunge in coda le 4 righe della sezione "apertura" (46–49, carico lungo l'apertura,
+vedi sotto); lo schema 3 (v2.5.0) le 6 righe della sezione "viscoso" (40–45). Le righe 1–39 sono quelle
 dello schema 2, quindi il tagging HEEDS esistente resta valido. Lo schema 2 (v2.2.1) aveva riordinato le
 chiavi rispetto alla v2.1 (riferimenti dopo i carichi, eco
 degli ingressi in fondo): andava fatto prima del primo tagging in HEEDS.
+
+### Carico lungo l'apertura (v2.6.0)
+
+Dopo l'export di carichi e VTK lo script crea `spanload.n_sections` (default 40) sezioni sul piano XZ, addensate
+verso l'estremità (η = sin(π/2·t)), e fa calcolare a FlightStream i carichi di sezione (`CREATE_NEW_SURFACE_SECTION`,
+`UPDATE_ALL_SURFACE_SECTIONS`, `COMPUTE_SURFACE_SECTIONAL_LOADS COEFFICIENTS`, `EXPORT_SURFACE_SECTIONAL_LOADS`,
+manuale 26.1 p. 363 e p. 250). cl = CFz cos α − CFx sin α sulla corda locale. Uscite: `spanload.csv` (η, y, corda,
+cl, CFx, CFz, cm) e le righe 46–49 di `results.txt`; in `run_info.txt` il controllo (2/Sref)∫cl·c dy contro CL
+(−0,53 % sulla baseline; una nota ATTENZIONE oltre l'1 %). Richiede `wing_frame` con asse in apertura ±y; la
+semiapertura viene dal CCS in `ccs_wing`, da `spanload.semispan_m` in `fixed`. Senza: righe 46–49 a −999 (status
+invariato); file dei carichi di sezione mancante o illeggibile: status 4. `spanload.enabled = false` lo disattiva.
 
 ### Accoppiamento viscoso e separazione (v2.5.0, ESPLORATIVO, NON VALIDATO)
 

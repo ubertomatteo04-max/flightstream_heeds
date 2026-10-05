@@ -1,5 +1,6 @@
 status = 0 (ok)
-fs_driver v2.5.1, 2026-10-05 16:59:11
-- processi del run: FlightStream.exe (PID 36508)
+fs_driver v2.6.0, 2026-10-05 17:07:42
+- processi del run: FlightStream.exe (PID 37152)
 - densita' per q, L, D: 1.225 kg/m^3 (JSON fluid)
+- carico in apertura: 40 sezioni, (2/Sref) * integrale di cl c dy = 0.57367 (CL dei carichi 0.5767, scarto -0.53 %)
 FS_DRIVER_RESULT status=0 success=1

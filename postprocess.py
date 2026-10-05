@@ -446,3 +446,78 @@ def wing_frame_metrics(vtk, frame, pp):
     else:
         out["H_max_attached_up"] = out["x_H_max_attached_up"] = None
     return out
+
+
+# --------------------------------------------------------------------------------------
+# 5. Carico lungo l'apertura (v2.6.0): carichi di sezione di FlightStream
+# --------------------------------------------------------------------------------------
+SPANLOAD_KEYS = ["cl_sec_max", "eta_cl_sec_max", "cl_sec_root", "cl_sec_eta05"]
+_SEC_COLS = ["offset", "chord", "x_qc", "z_qc", "CFx", "CFz", "CM"]
+
+
+def spanload_stations(n):
+    """Posizioni in apertura eta (0-1) delle sezioni: punti medi di n intervalli uguali in t,
+    eta = sin(pi/2 t), cioe' addensate verso l'estremita' dove il carico cade rapidamente."""
+    return [math.sin(0.5 * math.pi * (k - 0.5) / n) for k in range(1, n + 1)]
+
+
+def parse_sectional_loads(path):
+    """File di EXPORT_SURFACE_SECTIONAL_LOADS (FlightStream 26.1, verificato il 2026-10-05):
+    intestazione, riga 'Offset, Chord, X_QC, Z_QC, CFx, CFz, CM', poi una riga per sezione con 7
+    numeri separati da virgole (coefficienti 2D sulla corda locale e sulla q del flusso libero)."""
+    rows, started = [], False
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        for ln in f:
+            s = ln.strip()
+            if s.lower().startswith("offset, chord"):
+                started = True
+                continue
+            if not started:
+                continue
+            t = [x for x in s.split(",") if x.strip()]
+            if len(t) != len(_SEC_COLS):
+                continue
+            try:
+                rows.append(dict(zip(_SEC_COLS, (float(x) for x in t))))
+            except ValueError:
+                continue
+    if not rows:
+        raise ValueError(f"nessuna sezione leggibile in {path}")
+    return rows
+
+
+def spanload_metrics(rows, aoa_deg, span, sref, factor):
+    """cl(eta) dalle sezioni: cl = CFz cos(a) - CFx sin(a) (sezioni nel frame di riferimento, assi
+    del corpo). span = {'root': coordinata della radice lungo l'asse in apertura (con il segno di
+    wing_frame.span_axis), 'b_half': semiapertura, 'sign': +1/-1 (verso dell'asse rispetto a y)}.
+    Restituisce (metriche SPANLOAD_KEYS, tabella per eta crescente, CL integrato).
+    CL integrato = factor / Sref * integrale di cl c dy (trapezi; tra radice e prima sezione cl c
+    costante, all'estremita' cl c = 0); factor = 2 con i carichi riportati all'ala intera (Mirror)."""
+    a = math.radians(aoa_deg)
+    tab = []
+    for r in rows:
+        eta = (span["sign"] * r["offset"] - span["root"]) / span["b_half"]
+        tab.append({"eta": eta, "y_m": r["offset"], "chord_m": r["chord"],
+                    "cl": r["CFz"] * math.cos(a) - r["CFx"] * math.sin(a), "CFx": r["CFx"], "CFz": r["CFz"],
+                    "cm_qc": r["CM"]})
+    tab.sort(key=lambda t: t["eta"])
+    best = max(tab, key=lambda t: t["cl"])
+    out = {"cl_sec_max": best["cl"], "eta_cl_sec_max": best["eta"], "cl_sec_root": tab[0]["cl"],
+           "cl_sec_eta05": None}
+    for t0, t1 in zip(tab, tab[1:]):
+        if t0["eta"] <= 0.5 <= t1["eta"]:
+            w = (0.5 - t0["eta"]) / (t1["eta"] - t0["eta"]) if t1["eta"] > t0["eta"] else 0.0
+            out["cl_sec_eta05"] = t0["cl"] + w * (t1["cl"] - t0["cl"])
+    ys = [0.0] + [t["eta"] * span["b_half"] for t in tab] + [span["b_half"]]
+    fs = [tab[0]["cl"] * tab[0]["chord_m"]] + [t["cl"] * t["chord_m"] for t in tab] + [0.0]
+    integral = sum(0.5 * (fs[i] + fs[i + 1]) * (ys[i + 1] - ys[i]) for i in range(len(ys) - 1))
+    return out, tab, factor * integral / sref
+
+
+def write_spanload(path, tab):
+    """spanload.csv: una riga per sezione (eta crescente)."""
+    keys = ["eta", "y_m", "chord_m", "cl", "CFx", "CFz", "cm_qc"]
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(",".join(keys) + "\n")
+        for t in tab:
+            f.write(",".join(f"{t[k]:.6g}" for k in keys) + "\n")

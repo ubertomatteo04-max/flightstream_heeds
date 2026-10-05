@@ -41,7 +41,7 @@ import traceback
 import geometry
 import postprocess as pp
 
-__version__ = "2.5.1"
+__version__ = "2.6.0"
 
 DEFAULTS = {
     "flightstream_exe": "",
@@ -76,6 +76,10 @@ DEFAULTS = {
     # (criterio di Stratford; valarezo solo per ipersostentatori o freccia > 10 gradi);
     # surfaces -1 = tutte; laminar_separation = modello di separazione laminare per bassi Re
     "separation": {"model": "none", "surfaces": -1, "valarezo": False, "laminar_separation": False},
+    # carico lungo l'apertura (v2.6.0): n_sections sezioni XZ (asse in apertura = y di wing_frame),
+    # carichi di sezione di FlightStream dopo il run. semispan_m: semiapertura; in ccs_wing viene
+    # dal CCS, in fixed va nel JSON. Senza wing_frame o semiapertura: chiavi cl_sec_* a -999.
+    "spanload": {"enabled": True, "n_sections": 40, "semispan_m": None},
     # license_retries: nuovi tentativi (oltre al primo) se la licenza non e' disponibile,
     # ciascuno dopo license_wait_s secondi; se fallisce anche l'ultimo, status 6
     # flightstream_process_names: nomi dei processi di FlightStream (controllo prima del lancio e
@@ -94,7 +98,7 @@ FLIGHT_VARS = ["aoa", "velocity", "altitude", "sideslip"]
 REQUIRED = ["CL", "CDi", "CDo", "CMy"]
 MISSING = -999
 STATUS_TEXT = {0: "ok", 1: "errore generico/setup", 2: "timeout", 3: "solver non convergente",
-               4: "H/cf non estraibili (CL/CD validi)", 5: "risultati non fisici",
+               4: "H/cf o carico in apertura non estraibili (CL/CD validi)", 5: "risultati non fisici",
                6: "FlightStream non disponibile (licenza o processo gia' attivo)"}
 # Checkout della licenza in fs_stdout.txt: FlightStream prova le Altair units, poi EDU, poi la
 # licenza a feature. Se falliscono tutte, in modalita' -hidden resta aperto senza fare nulla.
@@ -118,7 +122,7 @@ class FlightStreamBusy(FlightStreamUnavailable):
 FILES = {"script": "fs_script.txt", "ccs": "case_ccs.csv", "loads": "loads.txt",
          "vtk": "surface.vtk", "log": "fs_log.txt", "stdout": "fs_stdout.txt",
          "results": "results.txt", "info": "run_info.txt", "profiles": "bl_profiles.csv",
-         "fsm_out": "case.fsm"}
+         "fsm_out": "case.fsm", "spanload_raw": "spanload.txt", "spanload": "spanload.csv"}
 
 
 def log(msg):
@@ -141,7 +145,7 @@ def _onoff(flag):
 # HEEDS legge le risposte per posizione: una chiave nuova si aggiunge SOLO in fondo al file, cioe'
 # in coda all'ultima sezione (vedi README, "Contratto con HEEDS"); mai in mezzo, mai riordinare o
 # togliere chiavi. Ogni modifica dello schema incrementa SCHEMA_VERSION (scritto in results.txt).
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 RESULTS_SCHEMA = (
     ("stato", ["schema_version", "status", "converged", "iterations"]),
     ("carichi", ["CL", "CD", "CDi", "CDo", "CMx", "CMy", "CMz", "L_over_D", "L_N", "D_N"]),
@@ -154,6 +158,8 @@ RESULTS_SCHEMA = (
     # schema 3 (v2.5.0): accoppiamento viscoso e separazione, in coda (righe 1-39 invariate)
     ("viscoso", ["viscous_coupling", "separation_model", "iterations_inviscid", "iterations_viscous",
                  "converged_viscous", "sep_marker_frac_up"]),
+    # schema 4 (v2.6.0): carico lungo l'apertura, in coda (righe 1-45 invariate)
+    ("apertura", ["cl_sec_max", "eta_cl_sec_max", "cl_sec_root", "cl_sec_eta05"]),
 )
 
 
@@ -169,7 +175,7 @@ def _check_schema():
     keys = result_keys()
     if len(keys) != len(set(keys)):
         raise RuntimeError("RESULTS_SCHEMA contiene chiavi duplicate")
-    need = set(FLIGHT_VARS) | set(pp.WING_KEYS)
+    need = set(FLIGHT_VARS) | set(pp.WING_KEYS) | set(pp.SPANLOAD_KEYS)
     for names in geometry.GEOMETRY_VARIABLES.values():
         need |= set(names)
     missing = sorted(need - set(keys))
@@ -409,6 +415,37 @@ def surfaces_lines(ids):
     return [f"SURFACES {len(ids)}"] + [str(int(i)) for i in ids]
 
 
+def spanload_span(cfg, geo_span=None):
+    """Asse e semiapertura per il carico lungo l'apertura: (span, motivo). span = {'root', 'b_half',
+    'sign', 'n'} oppure None (chiavi cl_sec_* a -999, nessun effetto sullo status) con il motivo."""
+    sl = cfg["spanload"]
+    if not sl["enabled"]:
+        return None, "spanload.enabled = false"
+    fr = cfg.get("_wing_frame")
+    if fr is None:
+        return None, "nessun wing_frame nel JSON"
+    idx, sign = fr["span_axis"]
+    if idx != 1:
+        return None, "asse in apertura diverso da y (sezioni solo sul piano XZ)"
+    b = sl["semispan_m"] or (geo_span or {}).get("b_half")
+    if not b or float(b) <= 0:
+        return None, "semiapertura non nota (spanload.semispan_m nel JSON)"
+    n = int(sl["n_sections"])
+    if n < 2:
+        raise ValueError(f"spanload.n_sections = {n}: servono almeno 2 sezioni")
+    return {"root": float(fr["span_root_m"]), "b_half": float(b), "sign": sign, "n": n}, ""
+
+
+def spanload_lines(span, path):
+    """Sezioni XZ nel frame 1 (manuale 26.1 p. 363: CREATE_NEW_SURFACE_SECTION, UPDATE_ALL_SURFACE_SECTIONS,
+    COMPUTE_SURFACE_SECTIONAL_LOADS, EXPORT_SURFACE_SECTIONAL_LOADS). Vanno dopo l'export di carichi e
+    VTK: sono solo post-processing e non cambiano la soluzione."""
+    cmds = [[f"CREATE_NEW_SURFACE_SECTION 1 XZ {_fmt(span['sign'] * (span['root'] + e * span['b_half']))} 1 DISABLE -1"]
+            for e in pp.spanload_stations(span["n"])]
+    return cmds + [["UPDATE_ALL_SURFACE_SECTIONS"], ["COMPUTE_SURFACE_SECTIONAL_LOADS COEFFICIENTS"],
+                   ["EXPORT_SURFACE_SECTIONAL_LOADS", path]]
+
+
 def build_script(cfg, case, geo, files, ref):
     """Script FlightStream completo: geometria, fluido, modello fisico, condizioni di volo,
     inizializzazione, run, export. L'ordine (condizioni prima di INITIALIZE_SOLVER, vorticity
@@ -440,6 +477,8 @@ def build_script(cfg, case, geo, files, ref):
     s.append(["EXPORT_SOLVER_ANALYSIS_SPREADSHEET", files["loads"]])
     s.append(["SET_VTK_EXPORT_VARIABLES -1 DISABLE"])
     s.append(["EXPORT_SOLVER_ANALYSIS_VTK", files["vtk"]] + surfaces_lines(cfg["postproc"]["vtk_surfaces"]))
+    if cfg.get("_span"):
+        s += spanload_lines(cfg["_span"], files["spanload_raw"])
     s.append(["EXPORT_LOG", files["log"]])
     if cfg["run"]["save_fsm"]:
         s.append(["SAVEAS", files["fsm_out"]])
@@ -698,6 +737,34 @@ def read_boundary_layer(files, mode, ppcfg, frame, notes):
         return out, False
 
 
+def read_spanload(files, cfg, case, ref, res, notes):
+    """Blocco 3: carico lungo l'apertura dai carichi di sezione. Restituisce ok (False = status 4);
+    se non richiesto (cfg['_span'] None) le chiavi restano a -999 e ok = True."""
+    span = cfg.get("_span")
+    if not span:
+        return True
+    try:
+        path = files.get("spanload_raw")
+        if not path or not os.path.isfile(path):
+            raise ValueError(f"file dei carichi di sezione assente ({path})")
+        rows = pp.parse_sectional_loads(path)
+        factor = 2.0 if cfg["reference"]["symmetry_loads"] else 1.0
+        m, tab, cl_int = pp.spanload_metrics(rows, case["aoa"], span, ref["Sref"], factor)
+        res.update(m)
+        pp.write_spanload(files["spanload"], tab)
+        msg = f"carico in apertura: {len(rows)} sezioni, (2/Sref) * integrale di cl c dy = {cl_int:.5g}"
+        if res.get("CL"):
+            dev = 100.0 * (cl_int - res["CL"]) / res["CL"] if abs(res["CL"]) > 1e-6 else float("nan")
+            msg += f" (CL dei carichi {res['CL']:.5g}, scarto {dev:+.2f} %)"
+            if not abs(dev) <= 1.0:
+                msg = "ATTENZIONE " + msg + ": oltre l'1 %"
+        notes.append(msg)
+        return True
+    except Exception as e:
+        notes.append(f"carico in apertura: {type(e).__name__}: {e}")
+        return False
+
+
 def dimensional(res, case, ref, fluid, header=None):
     """Pressione dinamica, L e D in newton, Reynolds sulla lunghezza di riferimento.
     Se la tabella dei carichi riporta densita' o Reynolds, valgono quelli di FlightStream."""
@@ -747,7 +814,8 @@ def extract(files, mode, cfg, case, ref, fluid, res, notes):
                  f"({'tabella dei carichi' if header.get('density') else fluid['source']})")
     bl, bl_ok = read_boundary_layer(files, mode, cfg["postproc"], cfg["_wing_frame"], notes)
     res.update(bl)
-    return decide_status(res, bl_ok, notes)
+    sl_ok = read_spanload(files, cfg, case, ref, res, notes)
+    return decide_status(res, bl_ok and sl_ok, notes)
 
 
 def _value(v):
@@ -786,7 +854,8 @@ def write_run_info(workdir, status, notes, ok_statuses):
 
 def clean_old(workdir, keep_inputs):
     """Cancella i risultati di run precedenti (con --extract-only si tengono loads/log/vtk)."""
-    names = ["results", "info", "profiles"] + ([] if keep_inputs else ["loads", "vtk", "log", "stdout"])
+    names = ["results", "info", "profiles", "spanload"] + ([] if keep_inputs else
+                                                           ["loads", "vtk", "log", "stdout", "spanload_raw"])
     for k in names:
         p = os.path.join(workdir, FILES[k])
         if os.path.exists(p):
@@ -864,6 +933,7 @@ def parse_args(argv):
     ap.add_argument("--validate", action="store_true", help="confronta con il blocco 'validation'")
     ap.add_argument("--extract-only", action="store_true", help="rilegge loads/log/VTK gia' esistenti")
     ap.add_argument("--loads"); ap.add_argument("--log"); ap.add_argument("--vtk")
+    ap.add_argument("--spanload", help="carichi di sezione gia' esportati (con --extract-only)")
     ap.add_argument("--probes", action="store_true", help="scrive gli script di prova in probes/")
     return ap.parse_args(argv)
 
@@ -884,13 +954,16 @@ def run(a, cfg, workdir, res, notes):
     fluid = fluid_state(cfg, case)
     rf = cfg["reference"]
     if a.extract_only:
-        files = {"loads": a.loads, "log": a.log, "vtk": a.vtk,
-                 "profiles": os.path.join(workdir, FILES["profiles"])}
+        files = {"loads": a.loads, "log": a.log, "vtk": a.vtk, "spanload_raw": a.spanload,
+                 "profiles": os.path.join(workdir, FILES["profiles"]),
+                 "spanload": os.path.join(workdir, FILES["spanload"])}
         ref = {"Sref": rf["sref_m2"], "Lref": rf["lref_m"]}
+        cfg["_span"], why = spanload_span(cfg) if a.spanload else (None, "--spanload non indicato")
     else:
         files = {k: os.path.join(workdir, v) for k, v in FILES.items()}
         geo = geometry.build_geometry(case, cfg, workdir)
         ref = {"Sref": rf["sref_m2"] or geo["Sref"], "Lref": rf["lref_m"] or geo["Lref"]}
+        cfg["_span"], why = spanload_span(cfg, geo.get("span"))
         if not ref["Sref"] or not ref["Lref"]:
             raise ValueError("Sref/Lref mancanti: con questa modalita' vanno nel JSON "
                              "(reference.sref_m2, reference.lref_m)")
@@ -899,6 +972,8 @@ def run(a, cfg, workdir, res, notes):
         with open(files["script"], "w", encoding="utf-8") as f:
             f.write(build_script(cfg, case, geo, files, ref))
         log(f"Script scritto: {files['script']}")
+    if not cfg["_span"]:
+        notes.append(f"carico in apertura non calcolato: {why}")
     res.update({"Sref_m2": ref["Sref"], "Lref_m": ref["Lref"]})
     res.update(dimensional(res, case, ref, fluid))
     if a.dry_run and not a.extract_only:

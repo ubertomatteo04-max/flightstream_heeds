@@ -627,6 +627,20 @@ XFOIL non usato in questa fase (`reference\xfoil\` resta com'è).
 - `STATO.md` spostato nella radice del repo.
 - CCS 26.1: vedi la riga "Compatibilità CCS 26.1" in §1 (nessuna modifica necessaria).
 
+**Parte 2 – carico lungo l'apertura (schema 4)**
+- FlightStream calcola i carichi di sezione anche da script (manuale p. 363): 40 sezioni XZ addensate verso
+  l'estremità (η = sin(π/2·t)), dopo l'export di carichi e VTK (non cambiano la soluzione: righe 2–45 delle baseline
+  identiche). cl = CFz cos α − CFx sin α. Blocco JSON `spanload` (`enabled`, `n_sections`, `semispan_m`; in fixed
+  2,64 m, in ccs_wing dal CCS). Tempo per run invariato (≈ 23–33 s).
+- Righe 46–49: `cl_sec_max`, `eta_cl_sec_max`, `cl_sec_root` (sezione a η ≈ 0,02), `cl_sec_eta05`. Righe taggate in
+  HEEDS (2, 5, 6, 10, 12) ferme: test `TestTaggedRows`. Baseline e heeds_inputs rigenerati (diff: riga 1 e 46–49).
+- Controllo (2/Sref)∫cl·c dy contro CL: fixed −0,43 / −0,53 / −0,56 / −0,63 % a 0 / 4 / 8 / 12°; ccs_wing (chord_scale 1)
+  −0,53 % a 4°. Entro l'1 %.
+- cl(η) in D (`diagnostica\apertura\cl_eta.png`, `spanload_riepilogo.md`): ala rettangolare non svergolata, carico
+  quasi piatto fino a η ≈ 0,5 e più pieno dell'ellittico verso l'estremità; cl_sec_max/CL ≈ 1,10 (4°). **Attenzione:**
+  il massimo è su un plateau (cl a η 0,02 e 0,06 differiscono alla 4ª cifra), quindi `eta_cl_sec_max` salta tra 0,06 e
+  0,25 (0°): non usarlo come risposta di ottimizzazione; `cl_sec_max` sì.
+
 ## 4. Metriche di separazione: implementate e ancora proposte
 
 Implementate (v2.2.0, con `wing_frame`): `sep_frac_up_le`, `x_sep_up`, `H_max_attached_up`,

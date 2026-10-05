@@ -183,7 +183,8 @@ def _ccs_wing(params, cfg, workdir):
         raise ValueError("ccs_wing costruisce solo la semiala: solver.symmetry deve essere \"MIRROR\".")
     factor = 2.0 if cfg["reference"]["symmetry_loads"] else 1.0
     return {"lines": lines, "init_lines": initialize_solver_lines(sol), "explicit_physics": True,
-            "Sref": factor * ref["S_half"], "Lref": ref["MAC"]}
+            "Sref": factor * ref["S_half"], "Lref": ref["MAC"],
+            "span": {"y_root": ref["y_root"], "b_half": ref["b_half"]}}
 
 
 def _section_points(line):

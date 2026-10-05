@@ -21,6 +21,8 @@
                 "moment_point_m": [0.0, 0.0, 0.0], "moment_frame_index": 2},
   "separation": {"model": "none", "surfaces": [1], "valarezo": false, "laminar_separation": false,
                  "_nota": "modello di separazione di FlightStream: none (validato) oppure airfoil (esplorativo, criterio di Stratford)"},
+  "spanload": {"enabled": true, "n_sections": 40, "semispan_m": 2.64,
+               "_nota": "carico lungo l'apertura (cl_sec_*): sezioni XZ addensate verso l'estremita'; in fixed la semiapertura va indicata qui (in ccs_wing viene dal CCS)"},
   "wing_frame": {"chord_axis": "+x", "span_axis": "+y", "up_axis": "+z", "span_root_m": 0.0,
                  "_nota": "assi della semiala per dorso/ventre, x/c e strisce (metriche sep_frac_*, x_sep_up, H_max_attached_up); toglierlo per corpi non alari"},
   "postproc": {"vtk_surfaces": []},
