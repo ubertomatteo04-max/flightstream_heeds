@@ -1,4 +1,9 @@
-# fs_pipeline v2.5.0: FlightStream in batch, pronto per HEEDS
+# fs_pipeline v2.6.0: FlightStream in batch, pronto per HEEDS
+
+**Stato (v2.6.0):** lavoro sull'ala chiuso. Configurazione di riferimento = disaccoppiata, senza modello di
+separazione (default dei due JSON in radice). Conclusioni per il team in `REPORT_ALA.md`; storia e decisioni in
+`STATO.md`. I JSON in `configs/esplorativi/` (accoppiamento, separazione, mesh, TE tozzo) **non sono validati e
+non vanno usati in HEEDS**.
 
 Script Python (solo libreria standard, Python ≥ 3.8) che, in una cartella di design:
 legge `params.txt` → prepara la geometria → scrive lo script FlightStream → lancia FlightStream
@@ -52,14 +57,18 @@ heeds_report.bat --study "...\semiala_Study_2" --check-against-mock mock_runs\su
 ```
 
 **5. HEEDS:** seguire `HEEDS_SETUP.md` (procedura passo-passo del primo Evaluation Only, con la tabella
-delle 39 righe di `results.txt` da taggare e i file `heeds_inputs\<modalità>\params.txt` / `results.txt`
+delle 49 righe di `results.txt` da taggare e i file `heeds_inputs\<modalità>\params.txt` / `results.txt`
 da aggiungere in HEEDS).
 
 **Da sapere in breve**
 - Due modalità: `fixed` (template `.fsm`, variabili `aoa`, `velocity`, `sideslip`) e `ccs_wing` (semiala da
   CCS, in più `chord_scale`; `sideslip` = 0). Con `chord_scale` Sref cambia: obiettivi `L_over_D` o
   `L_N`/`D_N`, non CL.
-- `results.txt` ha sempre 39 righe nello stesso ordine (`-999` = non disponibile); chiavi nuove solo in fondo.
+- `results.txt` ha sempre 49 righe nello stesso ordine (`-999` = non disponibile, schema 4); chiavi nuove solo in
+  fondo. Righe 46–49: carico lungo l'apertura (`cl_sec_*`, `spanload.csv` nella cartella del design).
+- Incertezze (v2.6.0, `REPORT_ALA.md`): mesh ≈ 1 % sui carichi inviscidi, CDo GCI 2,9 % a 4° e 13,8 % a 12°;
+  bordo d'uscita raccordato (default) contro tozzo (`te_type: "blunt"`, opzione): ≈ 4 % su CL, ≈ 6 % su CMy.
+  H e cf del VTK: indicatori qualitativi.
 - Codice di uscita 0 solo se lo status è in `heeds.success_statuses` del JSON (default `[0]`).
 - Status: 0 ok, 1 setup/errore, 2 timeout (`run.timeout_s` = 240 s nei JSON della semiala), 3 non
   convergente, 4 manca solo H/cf, 5 non fisico, 6 FlightStream non disponibile (licenza o già attivo).
@@ -308,7 +317,7 @@ cl, CFx, CFz, cm) e le righe 46–49 di `results.txt`; in `run_info.txt` il cont
 semiapertura viene dal CCS in `ccs_wing`, da `spanload.semispan_m` in `fixed`. Senza: righe 46–49 a −999 (status
 invariato); file dei carichi di sezione mancante o illeggibile: status 4. `spanload.enabled = false` lo disattiva.
 
-### Accoppiamento viscoso e separazione (v2.5.0, ESPLORATIVO, NON VALIDATO)
+### Accoppiamento viscoso e separazione (v2.5.0, ESPLORATIVO; modello di separazione ABBANDONATO per quest'ala in v2.6.0)
 
 `solver.viscous_coupling = true`: FlightStream fa prima il run inviscido fino a convergenza, poi un secondo
 run con lo strato limite accoppiato (manuale p. 205); il log ha due tabelle di iterazioni e la numerazione
@@ -320,8 +329,9 @@ solver non cambia (CL del log uguale a quello senza separazione), cambia la tabe
 CDi (vorticità) e CDo (attrito) non vedono la separazione: **non c'è una resistenza di pressione**.
 `sep_marker_frac_up` = frazione del dorso con `Separation_marker` ≥ 0,5 (0 senza modello di separazione).
 JSON di esempio: `configs/esplorativi/case_semiala_fixed_coupled.json` (C) e `configs/esplorativi/case_semiala_fixed_coupled_sep.json` (CS), con
-`run.timeout_s = 600`. Risultati del DOE esplorativo e avvertenze: `STATO.md`. **Nessuna conclusione
-quantitativa sullo stallo** finché non ci sono il confronto con XFOIL e la convergenza di mesh.
+`run.timeout_s = 600`. Risultati del DOE esplorativo e avvertenze: `STATO.md`. **Il modello di
+separazione non è usabile per quest'ala** (diagnosi in `STATO.md` §3.13, sintesi in `REPORT_ALA.md` §4): resta
+nel codice con default `none`, da non usare in HEEDS.
 
 ## Il JSON del caso
 

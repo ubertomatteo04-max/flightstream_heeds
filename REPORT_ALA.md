@@ -76,7 +76,10 @@ Il modello resta nel codice come opzione (default `none`) e **non va usato in HE
 - **Rivalutazione dei design falliti per cause esterne** (status 2 o 6, ad esempio il blocco occasionale di
   FlightStream dopo la convergenza): procedura *Share designs* del manuale HEEDS (p. 9-33), descritta in
   `HEEDS_SETUP.md`; la creazione dei set di POST nella GUI è ancora da provare.
-- **Collaudo finale v2.6.0** (`run_fs.bat`, stessi comandi di HEEDS): COLLAUDO_PLACEHOLDER
+- **Collaudo finale v2.6.0** (`run_fs.bat`, stessi comandi di HEEDS): 10 design, tutti status 0 (fixed a
+  α 0–12° con passo 2°; `ccs_wing` con chord_scale 0,9 / 1,0 / 1,1 a 4°). Le righe 2–39 di `results.txt` sono
+  **identiche** allo Study_2 e al DOE ccs precedente (differenza massima 0; portanza 235,8 / 257,4 / 278,8 N). La
+  verifica dello Study_2 con `heeds_report` risulta ancora OK. Controlli automatici: 52 test e preflight verdi.
 - `results.txt` ha 49 righe a posizione fissa (schema 4). Le righe già taggate in HEEDS non si spostano: le
   aggiunte stanno sempre in fondo (carico lungo l'apertura nelle righe 46–49).
 

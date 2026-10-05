@@ -1,4 +1,8 @@
-# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-05 (v2.5.1: diagnosi del modello di separazione + riferimento XFOIL)
+# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.6.0: ala completa – mesh, carico in apertura, collaudo, report)
+
+**Lavoro sull'ala chiuso (v2.6.0).** Conclusioni per il team: `REPORT_ALA.md`. Configurazione di riferimento D
+(disaccoppiata, separazione `none`); C e CS esplorative (`configs/esplorativi/`); modello di separazione abbandonato
+per quest'ala; H/cf qualitativi; XFOIL non usato in questa fase (`reference/xfoil/` resta com'è).
 
 Pipeline Python (solo libreria standard) che fa girare FlightStream 26.1 in batch per HEEDS:
 `params.txt` → script FlightStream → run `-hidden` → `results.txt`. La documentazione d'uso completa
@@ -9,17 +13,21 @@ sono. Dalla v2.6.0 sta nella radice del repo (prima era in `Desktop\fs_heeds_pip
 
 | Parte | Stato |
 |---|---|
-| `fs_driver.py` v2.5.1 + `geometry.py` + `postprocess.py` + `run_fs.bat` | funzionanti con FlightStream 26.1 (build 5012026); repo git `github.com/ubertomatteo04-max/flightstream_heeds`, commit v2.2.0 → v2.5.1 |
+| `fs_driver.py` v2.6.0 + `geometry.py` + `postprocess.py` + `run_fs.bat` | funzionanti con FlightStream 26.1 (build 5012026); repo git `github.com/ubertomatteo04-max/flightstream_heeds`, commit v2.2.0 → v2.6.0 |
 | Modalità `fixed` (template `..\semiala_run01.fsm`) | **validata**: riproduce esattamente il run di riferimento; DOE aoa 0–12° tutto status 0; baseline reale (§3.7) |
 | Modalità `ccs_wing` (CCS `..\semiala_ccs_U120_V64_blended.csv`, `chord_scale`) | **validata**: con `chord_scale = 1` coincide con `fixed` anche nel Re; DOE `chord_scale` 0,9/1,0/1,1 coerente; baseline reale (§3.7) |
-| `results.txt` | schema fisso di **45 righe** (`RESULTS_SCHEMA`, `schema_version = 3` in riga 1, v2.5.0): righe 1–39 identiche allo schema 2 (tagging HEEDS valido), righe 40–45 accoppiamento/separazione; chiavi nuove solo in fondo |
-| Accoppiamento viscoso e separazione | attivabili da JSON (`solver.viscous_coupling`, blocco `separation`), default = comportamento validato (regressione byte per byte righe 2–39); **ESPLORATIVO, NON VALIDATO** (§3.12). Diagnosi (§3.13): il criterio di Stratford segna la separazione al TE molto prima di XFOIL in tutte le varianti; i campi di strato limite del VTK non vengono dalla fase accoppiata |
+| `results.txt` | schema fisso di **49 righe** (`RESULTS_SCHEMA`, `schema_version = 4` in riga 1, v2.6.0): righe 1–39 identiche allo schema 2 (tagging HEEDS valido, righe 2, 5, 6, 10, 12 bloccate da un test), 40–45 accoppiamento/separazione, 46–49 carico lungo l'apertura (`cl_sec_*`); chiavi nuove solo in fondo |
+| Mesh (ccs_wing) | blocco JSON `mesh` (Mesh_U/Mesh_V del CCS); default = mesh attuale, **confermata** (v2.6.0, §3.14): carichi inviscidi entro 1,2 % medium–fine, CDo dichiarata con il GCI (2,9 % a 4°, 13,8 % a 12°) |
+| Bordo d'uscita (ccs_wing) | default `te_type: "blended"` (raccordo del CCS); opzione `"blunt"` (TE tozzo fedele con base region): CL −4 %, CMy −6 % → incertezza geometrica dichiarata (§3.14) |
+| Carico lungo l'apertura | 40 sezioni, carichi di sezione di FlightStream; ∫cl·c = CL entro 0,65 % (§3.14) |
+| `REPORT_ALA.md` | report di chiusura per il team (v2.6.0) |
+| Accoppiamento viscoso e separazione | attivabili da JSON (`solver.viscous_coupling`, blocco `separation`), default = comportamento validato (regressione byte per byte righe 2–39); **ESPLORATIVO, NON VALIDATO** (§3.12). Diagnosi (§3.13): il criterio di Stratford segna la separazione al TE già a 0–4° in tutte le varianti; i campi di strato limite del VTK non vengono dalla fase accoppiata. **Modello di separazione abbandonato per quest'ala (v2.6.0)**; JSON in `configs/esplorativi/` |
 | Riferimento XFOIL 6.99 | `reference\xfoil\`: profilo `vespa.dat` dal CCS, polari Ncrit 7/9/11, dump, `summary.md`, grafici; α₀ inviscido −2,00° contro −1,98° di FlightStream → profilo verificato (§3.13) |
 | Contratto con HEEDS | codice di uscita 0 se lo status è in `heeds.success_statuses` (default `[0]`); `run_info.txt` termina con `FS_DRIVER_RESULT status=<n> success=<0\|1>` |
 | Esecuzione come HEEDS | `run_fs.bat` (interprete fissato, `%~dp0`, `exit /b %ERRORLEVEL%`); percorsi del JSON risolti rispetto al JSON, output nella cartella corrente; percorsi con spazi verificati con run reali |
 | Processi / licenza | controllo prima del lancio (FlightStream già attivo → status 6), chiusura dell'albero al timeout, nuovi tentativi sulla licenza; tutto provato con run reali (§3.6) |
 | Metriche di separazione | `sep_frac_up_le` (vincolo consigliato), `x_sep_up`, `H_max_attached_up`, `x_H_max_attached_up`, `sep_frac_lo_te` (diagnostica) implementate con il blocco `wing_frame` del JSON |
-| Test automatici | 35 test senza FlightStream: `python -m unittest discover -s tests -v` (≈ 40 s) |
+| Test automatici | 52 test senza FlightStream: `python -m unittest discover -s tests -v` (≈ 40 s) |
 | `heeds_mock.py` | lancia `run_fs.bat` con cwd = cartella del design; `--root` con struttura `Design_<N>\Analysis_1` |
 | Collegamento a HEEDS | **Evaluation Only (Study_1) e sweep su aoa (Study_2, 7 design) riusciti e verificati** (HEEDS 2604.0, §3.8 e §3.10); controllo del codice di uscita attivo e provato |
 | `heeds_report.py` / `.bat` | CSV + grafici CL–α e L/D–α di uno studio dai `results.txt` dei design; con `--check-against-mock` verifica lo studio contro il DOE del driver (`verifica.md`, VERIFICA OK/FALLITA, codice 0/1); provato sul DOE mock (OK), su Study_1 (OK) e su una copia alterata (FALLITA) |
@@ -673,7 +681,27 @@ XFOIL non usato in questa fase (`reference\xfoil\` resta com'è).
   dove comincia il raccordo). **Effetto: CL −4,1 / −3,9 %, CMy −5,9 / −6,5 % a 4 / 12°** (oltre l'1 %); bolla sul ventre
   0,876–0,926 (blended 0,904–0,926) a 4°, sep_frac_lo_te 0,040 contro 0,031.
 - **STOP** (due condizioni): medium non supera il 2 % sulla CDo; la variante TE fedele cambia CL e CMy di più dell'1 %.
-  Default NON cambiati (mesh e TE attuali); proposta in attesa di decisione.
+- **Decisione dell'utente (2026-10-06):** mesh medium come default, CDo dichiarata con il suo GCI (famiglia B: 2,9 % a
+  4°, 13,8 % a 12°); TE `blended` come default, `blunt` come opzione `te_type`, incertezza geometrica dichiarata
+  (≈ 4 % su CL, ≈ 6 % su CMy). Implementato: `te_type: "blunt"` aggiunge `AUTO_DETECT_BASE_REGIONS` e
+  `SET_BASE_REGION_TRAILING_EDGES -1` dopo l'import del CCS e richiede `solver.init_surfaces = -1`; run reale = prototipo
+  (CL 0,5531, CMy −0,1875 a 4°; ∫cl·c −0,50 %). Esempio: `configs/esplorativi/case_semiala_ccs_te_blunt.json`.
+
+**Parte 4 – collaudo e pulizia**
+- JSON di C, CS, varianti della separazione e livelli di mesh in `configs/esplorativi/` (README: non validati, non
+  usare in HEEDS); in radice solo `case_semiala_fixed.json` e `case_semiala_ccs.json`. `run_varianti.py` e
+  `run_mesh.py` scrivono lì; i JSON rigenerati coincidono con quelli spostati.
+- `.gitignore`: cartelle `runs/` e log della diagnostica, `spanload.txt`, VTK, cartelle dei design fuori dal repo;
+  CSV di riepilogo della diagnostica e di XFOIL dentro. File più grande nel repo: 168 kB (PNG). In `diagnostica/`
+  restano md, csv, png e gli script che li rigenerano.
+- Collaudo end-to-end con `run_fs.bat` (`diagnostica/collaudo/collaudo.py` → `collaudo.md`): fixed α 0–12° passo 2°
+  contro i `results.txt` dello Study_2 e ccs_wing chord_scale 0,9/1,0/1,1 a 4° contro `mock_runs_ccs` (confronto per
+  chiave: quel DOE ha lo schema pre-v2.2.1, senza le 5 metriche `wing_frame`). **10/10 status 0, righe 2–39 identiche,
+  differenza massima 0**; riga 1 = 4 (era 2). L_N ccs 235,838 / 257,445 / 278,819 N.
+- Controlli finali: `PREFLIGHT OK`; 52 test OK; `heeds_report.bat --check-against-mock mock_runs\summary.csv` sullo
+  Study_2: **VERIFICA OK** (anche contro il DOE di collaudo). Report in `Desktop\fs_heeds_pipeline\reports\semiala_Study_2_v260`.
+
+**Parte 5** – `REPORT_ALA.md` (report per il team), DEMO.md, README (quick start) e questo file aggiornati.
 
 ## 4. Metriche di separazione: implementate e ancora proposte
 
@@ -703,16 +731,10 @@ Limite da dire chiaramente: con `viscous_coupling = false` e senza modello di se
 
 ## 5. Prossimi passi
 
-1. **Demo di giovedì:** `DEMO.md` con `demo\CL_alpha.png`, `demo\LD_alpha.png`, `demo\verifica_Study_2.md`.
-2. Accoppiamento/separazione (diagnosi in §3.13): convergenza di mesh, poi confronto completo con XFOIL (Cp, cl di
-   sezione, H e cf). Da decidere: le metriche dal VTK di un run accoppiato sono da non usare finché lo strato limite
-   esportato viene dalla fase inviscida; provare C con CDi da pressione; correggere `parse_log` (intestazione ristampata
-   ogni 100 iterazioni, §3.13).
-3. Facoltativo: condizione "File contains" `schema_version = 3` come Success (HEEDS_SETUP passo 6b) e prova
-   che si combini in AND con il codice di uscita.
-4. Test dello **Stop** durante un run (FlightStream orfano?) e annotare il risultato.
-5. **Parte 5** (compatibilità CCS 26.1: `Parameter;WingRefArea`/`MAC` → `ReferenceArea`/`ReferenceLength`,
-   comandi rimossi, sintassi di `CREATE_AIRFOIL_SEPARATION` e `LAMINAR_SEPARATION`).
-6. Sweep su `chord_scale` (ccs_wing), poi SHERPA su `L_over_D`.
-7. Piano 2–8 (DEMO.md): mesh, XFOIL, accoppiamento viscoso + separazione (esplorato in v2.5.0, §3.12; da validare
-   prima di usarlo), calibrazione, problema di ottimizzazione, API HEEDS (tagging da trovare), fusoliera.
+1. **Problema SHERPA** da discutere col team (`REPORT_ALA.md` §6): min `D_N` con `L_N` ≥ peso W (**W da chiedere**),
+   variabili `aoa` e `chord_scale`; senza vincolo di stallo l'ottimo va sul limite delle variabili (limite su `aoa` o
+   vincolo su `cl_sec_max` da decidere). Non eseguito.
+2. **Validazione esterna** (galleria o CFD): carichi, CDo, H/cf. Fino ad allora H/cf qualitativi.
+3. HEEDS: creare in GUI i set di POST per *Share designs* (rivalutazione dei design con status 2/6, HEEDS_SETUP passo 10);
+   test dello **Stop** durante un run; facoltativo "File contains" `schema_version = 4`.
+4. API HEEDS (tagging da trovare); fusoliera (riferimento RANS per la resistenza di pressione).

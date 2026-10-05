@@ -12,7 +12,7 @@ manuale né verificato è segnato **DA VERIFICARE**.
 
 Progetto `C:\Users\UtenteLocale\Desktop\heeds\semiala_fixed\semiala.heeds`, "Evaluate baseline design":
 1 design, 0 errori, 53 s. status 0, CL 0,5767, CD 0,0202, CMy −0,1993, L_over_D 28,5495, aoa 4: uguale al
-riferimento e a `heeds_inputs\fixed\results.txt` (39 righe, stesse chiavi e stessi valori).
+riferimento e a `heeds_inputs\fixed\results.txt` (allora 39 righe, schema 2; oggi 49 righe, schema 4: le righe 1–39 hanno le stesse chiavi e gli stessi valori).
 
 Verificato in quell'occasione:
 - **Variante A** del comando (`run_fs.bat` eseguito direttamente): funziona, `cmd /c` non serve. Codice di
