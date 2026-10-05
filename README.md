@@ -328,7 +328,7 @@ Le chiavi che iniziano con `_` sono commenti. Esempi: `case_semiala_fixed.json`,
 | `solver.model`, `bl_type`, `roughness_nm`, `viscous_coupling`, `wall_collision_avoidance` | modello fisico: usato quando lo script inizializza la simulazione (`ccs_wing`, `fixed` con `reinitialize`); con `reinitialize = false` vale quello del .fsm |
 | `solver.init_surfaces` | superfici di `INITIALIZE_SOLVER`: `[[indice, quad_mesher], …]` (es. `[[1, true]]`) oppure `-1` = tutte. Obbligatoria quando lo script inizializza |
 | `solver.wake_termination_x`, `symmetry` | `"DEFAULT"` o un numero [m]; `"MIRROR"`, `"NONE"` (`ccs_wing` vuole `"MIRROR"`). `symmetry` obbligatoria quando lo script inizializza |
-| `solver.vorticity_drag_boundaries` | superfici per il CDi di vorticità: lista di indici (es. `[1]`) oppure `-1` = tutte |
+| `solver.vorticity_drag_boundaries` | superfici per il CDi di vorticità: lista di indici (es. `[1]`) oppure `-1` = tutte; `[]` = nessuna (`DELETE_VORTICITY_DRAG_BOUNDARIES`, CDi dall'integrazione della pressione, manuale p. 202 e 349; solo diagnostica, non validato) |
 | `reference.sref_m2`, `lref_m` | area e lunghezza di riferimento. Obbligatorie in `fixed`; in `ccs_wing` `null` = calcolate dalla geometria (Sref = 2·S_semiala con symmetry_loads, Lref = MAC) |
 | `reference.symmetry_loads` | carichi riportati al corpo intero (simmetria Mirror) |
 | `reference.moment_point_m` | punto [x, y, z] in metri attorno a cui si calcolano i momenti; `null` = origine del frame 1, senza creare un nuovo sistema |

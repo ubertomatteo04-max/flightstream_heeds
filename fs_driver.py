@@ -41,7 +41,7 @@ import traceback
 import geometry
 import postprocess as pp
 
-__version__ = "2.5.0"
+__version__ = "2.5.1"
 
 DEFAULTS = {
     "flightstream_exe": "",
@@ -372,10 +372,14 @@ def check_separation(sep):
 
 def vorticity_lines(sol):
     """Superfici per la resistenza indotta di vorticita' (CDi): -1 = tutte, altrimenti la lista
-    degli indici. E' un comando di analisi: va dopo START_SOLVER, come nello script di riferimento."""
+    degli indici. E' un comando di analisi: va dopo START_SOLVER, come nello script di riferimento.
+    Lista vuota = nessuna superficie (DELETE_VORTICITY_DRAG_BOUNDARIES, manuale 26.1 p. 349): CDi
+    dall'integrazione della pressione (p. 202); solo diagnostica, non validato."""
     ids = sol["vorticity_drag_boundaries"]
     if ids == -1:
         return [["SET_VORTICITY_DRAG_BOUNDARIES -1"]]
+    if ids == []:
+        return [["DELETE_VORTICITY_DRAG_BOUNDARIES"]]
     return [[f"SET_VORTICITY_DRAG_BOUNDARIES {len(ids)}", ",".join(str(int(i)) for i in ids)]]
 
 

@@ -13,3 +13,10 @@ _old/
 
 # file di esempio per il tagging in HEEDS: vanno nel repo nonostante 'results.txt' qui sopra
 !heeds_inputs/*/results.txt
+
+# punto 4 bis: cartelle dei run diagnostici e file di lavoro di XFOIL (rigenerabili); i CSV di riferimento vanno nel repo
+diagnostica/separazione/runs/
+diagnostica/separazione/runs_log*.txt
+reference/xfoil/work/
+!reference/xfoil/*.csv
+!diagnostica/separazione/tabella_varianti.csv

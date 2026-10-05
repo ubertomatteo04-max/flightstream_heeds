@@ -108,6 +108,14 @@ class TestSeparationScript(unittest.TestCase):
         rc, res, info, script = run_driver({"separation.model": "airfoil", "separation.surfaces": -1}, ["--dry-run"])
         self.assertIn("CREATE_AIRFOIL_SEPARATION AIRFOIL_SEP -1 DISABLE\n\n", script)
 
+    def test_vorticity_drag_boundaries(self):
+        # default dei JSON della semiala: [1]; lista vuota (solo diagnostica) = CDi da pressione
+        rc, res, info, script = run_driver({}, ["--dry-run"])
+        self.assertIn("START_SOLVER\n\nSET_VORTICITY_DRAG_BOUNDARIES 1\n1\n\n", script)
+        rc, res, info, script = run_driver({"solver.vorticity_drag_boundaries": []}, ["--dry-run"])
+        self.assertIn("START_SOLVER\n\nDELETE_VORTICITY_DRAG_BOUNDARIES\n\n", script)
+        self.assertNotIn("SET_VORTICITY_DRAG_BOUNDARIES", script)
+
     def test_invalid_separation(self):
         for change in ({"separation.model": "stratford"}, {"separation.surfaces": [0]}, {"separation.surfaces": []}):
             rc, res, info, script = run_driver(change, ["--dry-run"])

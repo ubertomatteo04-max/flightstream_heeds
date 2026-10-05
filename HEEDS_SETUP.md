@@ -363,8 +363,25 @@ projectFolder`): se cambia `heeds_inputs\…\params.txt` nel repo, va ricaricato
 ## Passo 10 — Design con status 2 o 6, Stop
 
 - Status 2 (timeout) e 6 (licenza, o FlightStream già attivo) dipendono dalla macchina, non dal design:
-  in HEEDS risultano errori. Vanno rilanciati con **Add more designs / Study restart** *(DA VERIFICARE
-  nella GUI)*. Il motivo è in `run_info.txt` della cartella del design.
+  in HEEDS risultano errori. Il motivo è in `run_info.txt` della cartella del design. Caso tipico: il
+  blocco occasionale di FlightStream dopo la convergenza (configurazione C a 2°, v2.5.0: residui già sotto
+  soglia, nessun output per oltre 9 minuti, ripetuto: OK) → timeout, status 2.
+- **Rivalutare solo i design in errore per cause esterne (status 2 o 6): Share designs**, manuale HEEDS
+  sezione *"Explicitly re-evaluating error designs"*, p. 9-33/9-34 (PDF p. 1107–1108). Rilanciare lo studio
+  dal design in errore non va bene: non garantisce gli stessi design e rifà tutti quelli successivi.
+  Procedura del manuale:
+  1. duplicare lo studio (*Copy an existing study*);
+  2. nella copia, scheda **Run** → **Share Designs** → creare un design set (es. `NonError`) → icona
+     **Import from file** → **Import from study** → studio originale, **Use POST design set** = il set dei
+     design riusciti → OK → **Submit** (vengono importati con i risultati, senza rieseguirli);
+  3. di nuovo **Share Designs** → secondo set (es. `Error`) → Import from study con **Use POST design set** =
+     il set dei design in errore, **togliendo** le spunte **Ignore error designs** e **Import response
+     values** → OK → **Submit** (importati senza risultati: vengono rieseguiti);
+  4. avviare lo studio: HEEDS esegue prima i set in ordine alfabetico (`Error` prima di `NonError`).
+  I due set `NonError` / `Error` sono design set di **POST** e vanno preparati prima nello studio originale
+  (filtro sui design in errore): come crearli *DA VERIFICARE nella GUI*. Prima di rilanciare controllare in
+  `run_info.txt` che lo status sia proprio 2 o 6: gli status 1, 3, 4, 5 dipendono dal design e si
+  ripeterebbero uguali.
 - **"Retry if not successful or fails to start"** ritenterebbe anche gli errori deterministici (status 1,
   3, 5): lascialo **disattivato** all'inizio.
 - **Test dello Stop (primo Evaluation Only):** avvia un design, premi Stop mentre FlightStream gira, poi
