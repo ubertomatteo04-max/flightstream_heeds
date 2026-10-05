@@ -487,7 +487,7 @@ Implementazione:
   FlightStream non la fornisce.
 - **Regressione:** run reale fixed 4° con i default → righe 2–39 identiche byte per byte alla baseline; nuove
   baseline fixed e ccs (schema 3) con righe 2–39 identiche alle precedenti.
-- JSON di esempio: `case_semiala_fixed_coupled.json` (C), `case_semiala_fixed_coupled_sep.json` (CS),
+- JSON di esempio (dalla v2.6.0 in `configs/esplorativi/`): `case_semiala_fixed_coupled.json` (C), `case_semiala_fixed_coupled_sep.json` (CS),
   `run.timeout_s = 450` (≈ 10 × il tempo nominale dei run accoppiati, 33–57 s).
 
 **Parte B, run a un punto (fixed):**

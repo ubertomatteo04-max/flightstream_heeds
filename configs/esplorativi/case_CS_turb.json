@@ -1,9 +1,9 @@
 {
-  "_nota": "DIAGNOSTICA punto 4 bis, variante DS di CS: solver.viscous_coupling = false. Non usare in produzione.",
+  "_nota": "DIAGNOSTICA punto 4 bis, variante CS_turb di CS: solver.bl_type = \"TURBULENT\". Non usare in produzione.",
   "flightstream_exe": "",
   "geometry": {
     "mode": "fixed",
-    "template_fsm": "../../../../semiala_run01.fsm",
+    "template_fsm": "../../../semiala_run01.fsm",
     "reinitialize": true,
     "_nota": "reinitialize = true: OPEN con LOAD_SOLVER_INITIALIZATION DISABLE, modello fisico e INITIALIZE_SOLVER dal blocco solver"
   },
@@ -26,9 +26,9 @@
     "convergence": 1e-05,
     "threads": 0,
     "model": "INCOMPRESSIBLE",
-    "bl_type": "TRANSITIONAL",
+    "bl_type": "TURBULENT",
     "roughness_nm": 0.0,
-    "viscous_coupling": false,
+    "viscous_coupling": true,
     "wall_collision_avoidance": false,
     "init_surfaces": [
       [

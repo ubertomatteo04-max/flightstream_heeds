@@ -1,28 +1,16 @@
 {
-  "_nota": "DIAGNOSTICA convergenza di mesh, livello coarse: mesh.u_pts = 80, mesh.v_pts = 43. Non usare in produzione.",
+  "_nota": "ESPLORATIVO, NON VALIDATO (manca il confronto con XFOIL e la convergenza di mesh). configurazione C: accoppiamento viscoso, nessun modello di separazione. Per il resto uguale a case_semiala_fixed.json.",
   "flightstream_exe": "",
   "geometry": {
-    "mode": "ccs_wing",
-    "base_ccs": "../../../../semiala_ccs_U120_V64_blended.csv",
-    "te_type": "blended",
-    "root_cap_tol_m": 0.0001
+    "mode": "fixed",
+    "template_fsm": "../../../semiala_run01.fsm",
+    "reinitialize": true,
+    "_nota": "reinitialize = true: OPEN con LOAD_SOLVER_INITIALIZATION DISABLE, modello fisico e INITIALIZE_SOLVER dal blocco solver"
   },
   "case": {
     "aoa": 4.0,
     "velocity": 20.0,
-    "sideslip": 0.0,
-    "chord_scale": 1.0
-  },
-  "mesh": {
-    "u_pts": 80,
-    "u_growth_type": 3,
-    "u_growth_rate": 1.1,
-    "u_periodicity": 2,
-    "v_pts": 43,
-    "v_growth_type": 1,
-    "v_growth_rate": 1.0,
-    "v_periodicity": 1,
-    "_nota": "Mesh_U (corda: 3 = addensata a LE e TE con periodicity 2) e Mesh_V (apertura, uniforme) del CCS, manuale 26.1 p. 82; valori = mesh validata (convergenza di mesh in STATO.md)"
+    "sideslip": 0.0
   },
   "fluid": {
     "override_fluid": false,
@@ -40,7 +28,7 @@
     "model": "INCOMPRESSIBLE",
     "bl_type": "TRANSITIONAL",
     "roughness_nm": 0.0,
-    "viscous_coupling": false,
+    "viscous_coupling": true,
     "wall_collision_avoidance": false,
     "init_surfaces": [
       [
@@ -52,11 +40,12 @@
     "symmetry": "MIRROR",
     "vorticity_drag_boundaries": [
       1
-    ]
+    ],
+    "_nota": "init_surfaces = [indice, quad mesher]; valori dello script del run di riferimento (run_fsm2)"
   },
   "reference": {
-    "sref_m2": null,
-    "lref_m": null,
+    "sref_m2": 1.82208,
+    "lref_m": 0.345091,
     "symmetry_loads": true,
     "moment_point_m": [
       0.0,
@@ -82,21 +71,10 @@
     "_nota": "assi della semiala per dorso/ventre, x/c e strisce (metriche sep_frac_*, x_sep_up, H_max_attached_up); toglierlo per corpi non alari"
   },
   "postproc": {
-    "vtk_surfaces": [],
-    "strip": [
-      0.45,
-      0.55
-    ],
-    "bin_width": 0.02,
-    "xtr_threshold": 0.99,
-    "te_window": [
-      0.9,
-      0.98
-    ],
-    "exclude_le": 0.05
+    "vtk_surfaces": []
   },
   "run": {
-    "timeout_s": 240,
+    "timeout_s": 450,
     "save_fsm": false,
     "license_retries": 2,
     "license_wait_s": 60
@@ -106,12 +84,5 @@
       0
     ],
     "_nota": "codice di uscita 0 se lo status e in questa lista: [0] per l ottimizzazione, [0, 4] per DOE in cui H/cf non sono obiettivi"
-  },
-  "validation": {
-    "CL": 0.5767,
-    "CDi": 0.0077,
-    "CDo": 0.0125,
-    "CMy": -0.1993,
-    "rel_tol": 0.01
   }
 }

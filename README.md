@@ -130,7 +130,7 @@ Con l'inizializzazione salvata (`reinitialize = false`) la semiala dava CL 0,593
 riferimento (+2,8 %), CDi +6,5 %, CMy +2,5 %, con lo stesso Re e lo stesso numero di iterazioni.
 Con `reinitialize = true` il riferimento è riprodotto esattamente (CL, CDi, CDo, CMy, Re,
 iterazioni e anche i residui dell'ultima iterazione), due run identici danno file identici byte per
-byte e `ccs_wing` con `chord_scale = 1` coincide (prove del 2026-10-04, vedi `../STATO.md`).
+byte e `ccs_wing` con `chord_scale = 1` coincide (prove del 2026-10-04, vedi `STATO.md`).
 
 `reinitialize = false` resta disponibile per un .fsm che non si sa reinizializzare dallo script
 (es. impostazioni del solver non esposte nel JSON): in quel caso vale ciò che è salvato nel file.
@@ -319,8 +319,8 @@ manuale applica una pressione semi-empirica sulle facce separate **dopo** il run
 solver non cambia (CL del log uguale a quello senza separazione), cambia la tabella dei carichi (CL, CMy).
 CDi (vorticità) e CDo (attrito) non vedono la separazione: **non c'è una resistenza di pressione**.
 `sep_marker_frac_up` = frazione del dorso con `Separation_marker` ≥ 0,5 (0 senza modello di separazione).
-JSON di esempio: `case_semiala_fixed_coupled.json` (C) e `case_semiala_fixed_coupled_sep.json` (CS), con
-`run.timeout_s = 600`. Risultati del DOE esplorativo e avvertenze: `../STATO.md`. **Nessuna conclusione
+JSON di esempio: `configs/esplorativi/case_semiala_fixed_coupled.json` (C) e `configs/esplorativi/case_semiala_fixed_coupled_sep.json` (CS), con
+`run.timeout_s = 600`. Risultati del DOE esplorativo e avvertenze: `STATO.md`. **Nessuna conclusione
 quantitativa sullo stallo** finché non ci sono il confronto con XFOIL e la convergenza di mesh.
 
 ## Il JSON del caso
@@ -383,7 +383,7 @@ separazione (`sep_frac_*`, `x_sep_up`, `*H_max_attached_up`) e restano solo `are
 
 ### Metriche di separazione (con `wing_frame`, v2.2.0)
 
-Dalla diagnosi del 2026-10-04 (`../STATO.md`): una cella separata ha cf < 0 e H bloccato a 3,9155; il
+Dalla diagnosi del 2026-10-04 (`STATO.md`): una cella separata ha cf < 0 e H bloccato a 3,9155; il
 segno di cf è riferito alla linea di corrente superficiale (non alla corrente libera), quindi la zona
 tra il ristagno e il bordo d'attacco **non** dà falsi positivi. `H_max` vale 3,9155 appena compare una
 separazione e `sep_max` è sempre 0 senza modello di separazione: restano solo per compatibilità.

@@ -3,7 +3,7 @@
   "flightstream_exe": "",
   "geometry": {
     "mode": "fixed",
-    "template_fsm": "../../../../semiala_run01.fsm",
+    "template_fsm": "../../../semiala_run01.fsm",
     "reinitialize": true,
     "_nota": "reinitialize = true: OPEN con LOAD_SOLVER_INITIALIZATION DISABLE, modello fisico e INITIALIZE_SOLVER dal blocco solver"
   },

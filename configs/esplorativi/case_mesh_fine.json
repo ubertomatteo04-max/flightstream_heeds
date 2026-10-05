@@ -1,9 +1,9 @@
 {
-  "_nota": "DIAGNOSTICA convergenza di mesh, livello medium: mesh attuale. Non usare in produzione.",
+  "_nota": "DIAGNOSTICA convergenza di mesh, livello fine: mesh.u_pts = 180, mesh.v_pts = 96. Non usare in produzione.",
   "flightstream_exe": "",
   "geometry": {
     "mode": "ccs_wing",
-    "base_ccs": "../../../../semiala_ccs_U120_V64_blended.csv",
+    "base_ccs": "../../../semiala_ccs_U120_V64_blended.csv",
     "te_type": "blended",
     "root_cap_tol_m": 0.0001
   },
@@ -14,15 +14,15 @@
     "chord_scale": 1.0
   },
   "mesh": {
-    "u_pts": 120,
+    "u_pts": 180,
     "u_growth_type": 3,
     "u_growth_rate": 1.1,
     "u_periodicity": 2,
-    "v_pts": 64,
+    "v_pts": 96,
     "v_growth_type": 1,
     "v_growth_rate": 1.0,
     "v_periodicity": 1,
-    "_nota": "Mesh_U (corda: 3 = addensata a LE e TE con periodicity 2) e Mesh_V (apertura, uniforme) del CCS, manuale 26.1 p. 82; valori = mesh validata (convergenza di mesh in STATO.md)"
+    "_nota": "Mesh_U (corda: 3 = addensata a LE e TE con periodicity 2) e Mesh_V (apertura, uniforme) del CCS, manuale 26.1 p. 82; valori = mesh attuale, quella dei risultati validati (convergenza di mesh: STATO.md §3.14)"
   },
   "fluid": {
     "override_fluid": false,

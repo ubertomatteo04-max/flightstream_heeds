@@ -21,6 +21,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 BASE = os.path.join(REPO, "case_semiala_ccs.json")
+CONFIGS = os.path.join(REPO, "configs", "esplorativi")   # JSON dei livelli (non di produzione)
 
 LEVELS = {
     "coarse": {"mesh.u_pts": 80, "mesh.v_pts": 43},
@@ -39,14 +40,14 @@ def write_config(name, changes):
         cfg = json.load(f)
     cfg = copy.deepcopy(cfg)
     src = os.path.normpath(os.path.join(REPO, cfg["geometry"]["base_ccs"]))
-    cfg["geometry"]["base_ccs"] = os.path.relpath(src, os.path.join(HERE, "config")).replace("\\", "/")
+    cfg["geometry"]["base_ccs"] = os.path.relpath(src, CONFIGS).replace("\\", "/")
     for path, val in changes.items():
         sec, key = path.split(".")
         cfg[sec][key] = val
     cfg["_nota"] = f"DIAGNOSTICA convergenza di mesh, livello {name}: " + (
         ", ".join(f"{k} = {v}" for k, v in changes.items()) or "mesh attuale") + ". Non usare in produzione."
-    os.makedirs(os.path.join(HERE, "config"), exist_ok=True)
-    path = os.path.join(HERE, "config", f"case_mesh_{name}.json")
+    os.makedirs(CONFIGS, exist_ok=True)
+    path = os.path.join(CONFIGS, f"case_mesh_{name}.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)
         f.write("\n")

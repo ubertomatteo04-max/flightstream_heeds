@@ -61,6 +61,10 @@ NEW_SIMULATION = {
     "ccs_wing": True,
 }
 
+# Bordo d'uscita in ccs_wing (manuale 26.1 p. 84; prove in STATO.md, v2.6.0):
+#   blended  default: raccordo del TE tozzo (0,652 % c) verso il punto medio, da x/c ~0,9; risultati validati
+#   sharp    sezioni chiuse: FlightStream porta il vertice del ventre su quello del dorso -> NON fedele (CL -33 %)
+#   blunt    TE tozzo fedele con base region (vedi _ccs_wing); CL -4 %, CMy -6 % rispetto a blended
 TE_PARAMS = {                     # parole chiave del formato CCS (manuale 26.1), senza prefisso
     "blended": ["Open_Cross_Sections", "Blend_trailing_edges", "Mark_trailing_edges"],
     "sharp": ["Mark_trailing_edges"],
@@ -179,6 +183,15 @@ def _ccs_wing(params, cfg, workdir):
               f"MIN_VALUE {_fmt(-(ref['b_half'] + 1.0))}", f"MAX_VALUE {_fmt(tol)}",
               "RANGE BELOW_MAX", "SUBSET ALL_FACES"],
              ["DELETE_SELECTED_FACES"]]
+    if g["te_type"].lower() == "blunt":
+        # TE tozzo fedele (v2.6.0, opzione): Blunt_trailing_edges crea le facce di base in un boundary proprio
+        # (manuale 26.1 p. 84); i bordi d'uscita (Kutta) si marcano sulla base region (p. 316). La base e' una
+        # superficie in piu': INITIALIZE_SOLVER deve includere tutte le superfici. Rispetto a "blended" (default):
+        # CL -4 %, CMy -6 % a 4-12 gradi (STATO.md, v2.6.0).
+        if sol.get("init_surfaces") != -1:
+            raise ValueError("geometry.te_type \"blunt\" richiede solver.init_surfaces = -1 (la base del bordo "
+                             "d'uscita e' una superficie a parte)")
+        lines += [["AUTO_DETECT_BASE_REGIONS"], ["SET_BASE_REGION_TRAILING_EDGES -1"]]
     if str(sol.get("symmetry")).upper() != "MIRROR":
         raise ValueError("ccs_wing costruisce solo la semiala: solver.symmetry deve essere \"MIRROR\".")
     factor = 2.0 if cfg["reference"]["symmetry_loads"] else 1.0

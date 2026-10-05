@@ -65,5 +65,39 @@ class TestMeshBlock(unittest.TestCase):
             self.assertEqual(mesh, [], ch)
 
 
+class TestBluntTrailingEdge(unittest.TestCase):
+    """te_type "blunt" (v2.6.0, opzione): facce di base + base region per i bordi d'uscita."""
+
+    def test_blunt_script(self):
+        with open(os.path.join(ROOT, "case_semiala_ccs.json"), encoding="utf-8") as f:
+            cfg = json.load(f)
+        cfg["geometry"]["base_ccs"] = os.path.join(ROOT, "..", "semiala_ccs_U120_V64_blended.csv")
+        cfg["geometry"]["te_type"] = "blunt"
+        cfg["solver"]["init_surfaces"] = -1
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "case.json"), "w", encoding="utf-8") as f:
+                json.dump(cfg, f)
+            with open(os.path.join(d, "params.txt"), "w", encoding="utf-8") as f:
+                f.write("aoa = 4\nchord_scale = 1\n")
+            subprocess.run([sys.executable, os.path.join(ROOT, "fs_driver.py"), "--config", os.path.join(d, "case.json"),
+                            "--workdir", d, "--dry-run"], capture_output=True, text=True)
+            with open(os.path.join(d, "fs_script.txt"), encoding="utf-8") as f:
+                script = f.read()
+            with open(os.path.join(d, "case_ccs.csv"), encoding="utf-8") as f:
+                ccs = f.read()
+        self.assertIn("DELETE_SELECTED_FACES\n\nAUTO_DETECT_BASE_REGIONS\n\nSET_BASE_REGION_TRAILING_EDGES -1\n\n", script)
+        self.assertIn("SURFACES -1", script)
+        self.assertIn("Open_Cross_Sections\nBlunt_trailing_edges", ccs)
+        self.assertNotIn("Mark_trailing_edges", ccs)
+
+    def test_blunt_requires_all_surfaces(self):
+        info, mesh = ccs_dry_run({"geometry.te_type": "blunt"})
+        self.assertIn("init_surfaces = -1", info)
+
+    def test_default_has_no_base_region(self):
+        info, mesh = ccs_dry_run({})
+        self.assertEqual(mesh, ["Mesh_U;120;3;1.1;2", "Mesh_V;64;1;1.0;1"])
+
+
 if __name__ == "__main__":
     unittest.main()

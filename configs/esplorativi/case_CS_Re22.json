@@ -1,15 +1,15 @@
 {
-  "_nota": "ESPLORATIVO, NON VALIDATO (manca il confronto con XFOIL e la convergenza di mesh). configurazione C: accoppiamento viscoso, nessun modello di separazione. Per il resto uguale a case_semiala_fixed.json.",
+  "_nota": "DIAGNOSTICA punto 4 bis, variante CS_Re22 di CS: case.velocity = 22.0. Non usare in produzione.",
   "flightstream_exe": "",
   "geometry": {
     "mode": "fixed",
-    "template_fsm": "../semiala_run01.fsm",
+    "template_fsm": "../../../semiala_run01.fsm",
     "reinitialize": true,
     "_nota": "reinitialize = true: OPEN con LOAD_SOLVER_INITIALIZATION DISABLE, modello fisico e INITIALIZE_SOLVER dal blocco solver"
   },
   "case": {
     "aoa": 4.0,
-    "velocity": 20.0,
+    "velocity": 22.0,
     "sideslip": 0.0
   },
   "fluid": {
@@ -55,7 +55,7 @@
     "moment_frame_index": 2
   },
   "separation": {
-    "model": "none",
+    "model": "airfoil",
     "surfaces": [
       1
     ],

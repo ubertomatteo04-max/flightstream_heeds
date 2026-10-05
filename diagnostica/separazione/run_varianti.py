@@ -2,13 +2,13 @@
 """
 run_varianti.py - Punto 4 bis, Parte 1: run diagnostici del modello di separazione (SOLO DIAGNOSTICA).
 
-Parte da case_semiala_fixed_coupled_sep.json (CS: fixed, accoppiato + Airfoil) e cambia una cosa alla volta:
+Parte da configs/esplorativi/case_semiala_fixed_coupled_sep.json (CS: fixed, accoppiato + Airfoil) e cambia una cosa alla volta:
     CS_Re22   V = 22 m/s (Re ~ 522 000, dentro il campo TRANSITIONAL)
     CS_turb   solver.bl_type = TURBULENT
     CS_lam    separation.laminar_separation = true
     DS        solver.viscous_coupling = false (disaccoppiato + Airfoil)
     CS_pdrag  solver.vorticity_drag_boundaries = [] -> DELETE_VORTICITY_DRAG_BOUNDARIES (CDi da pressione)
-Scrive i JSON in config\\ e lancia heeds_mock.py con aoa = 0, 4, 12, 16 in runs\\<variante>\\.
+Scrive i JSON in configs/esplorativi/ e lancia heeds_mock.py con aoa = 0, 4, 12, 16 in runs\\<variante>\\.
 I JSON di produzione non vengono toccati. CS di partenza: ..\\..\\mock_runs_visc_CS (stesso driver).
 
 Uso:  python run_varianti.py [--only CS_turb,DS] [--aoa 0,4,12,16]
@@ -22,7 +22,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
-BASE = os.path.join(REPO, "case_semiala_fixed_coupled_sep.json")
+CONFIGS = os.path.join(REPO, "configs", "esplorativi")
+BASE = os.path.join(CONFIGS, "case_semiala_fixed_coupled_sep.json")
 
 
 def _set(cfg, path, value):
@@ -43,19 +44,19 @@ VARIANTS = {
 
 
 def write_config(name, changes):
-    """JSON della variante in config\\: percorsi del template riportati rispetto alla nuova cartella."""
+    """JSON della variante in configs/esplorativi/: percorsi del template riportati rispetto alla nuova cartella."""
     with open(BASE, "r", encoding="utf-8") as f:
         cfg = json.load(f)
     cfg = copy.deepcopy(cfg)
-    tpl = os.path.normpath(os.path.join(REPO, cfg["geometry"]["template_fsm"]))
-    cfg["geometry"]["template_fsm"] = os.path.relpath(tpl, os.path.join(HERE, "config")).replace("\\", "/")
+    tpl = os.path.normpath(os.path.join(CONFIGS, cfg["geometry"]["template_fsm"]))
+    cfg["geometry"]["template_fsm"] = os.path.relpath(tpl, CONFIGS).replace("\\", "/")
     for k, v in changes.items():
         _set(cfg, k, v)
     cfg["_nota"] = (f"DIAGNOSTICA punto 4 bis, variante {name} di CS: "
                     + ", ".join(f"{k} = {json.dumps(v)}" for k, v in changes.items())
                     + ". Non usare in produzione.")
-    os.makedirs(os.path.join(HERE, "config"), exist_ok=True)
-    path = os.path.join(HERE, "config", f"case_{name}.json")
+    os.makedirs(CONFIGS, exist_ok=True)
+    path = os.path.join(CONFIGS, f"case_{name}.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)
         f.write("\n")

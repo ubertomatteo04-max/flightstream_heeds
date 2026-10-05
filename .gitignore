@@ -24,3 +24,6 @@ reference/xfoil/work/
 # v2.6.0: cartelle dei run diagnostici (rigenerabili)
 diagnostica/*/runs/
 diagnostica/*/runs_log*.txt
+spanload.txt
+# CSV di riepilogo della diagnostica (piccoli): nel repo
+!diagnostica/**/*.csv
