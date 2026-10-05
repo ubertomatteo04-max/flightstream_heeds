@@ -87,6 +87,26 @@ class TestCoupledLog(unittest.TestCase):
         self.assertIn("1 tabelle di iterazioni", info)
 
 
+class TestLogOver100Iterations(unittest.TestCase):
+    """FlightStream ristampa l'intestazione della tabella ogni 100 iterazioni: non e' una fase nuova
+    (log veri a 16 gradi, 101 iterazioni inviscide; v2.6.0)."""
+
+    def test_decoupled_reprint_is_one_phase(self):
+        d = pp.parse_log(os.path.join(FIX, "log_a16_101it.txt"))
+        self.assertEqual([p["iterations"] for p in d["phases"]], [101])
+        self.assertEqual(d["iterations"], 101)
+
+    def test_coupled_reprint_two_phases(self):
+        d = pp.parse_log(os.path.join(FIX, "log_coupled_a16_101it.txt"))
+        self.assertEqual([p["iterations"] for p in d["phases"]], [101, 174])
+        v = pp.viscous_convergence(d, True, 1e-5)
+        self.assertEqual((v["iterations_inviscid"], v["iterations_viscous"], v["converged_viscous"]), (101, 73, 1))
+
+    def test_extract_decoupled_over_100(self):
+        rc, res, info, _ = extract("log_a16_101it.txt", coupled=False)
+        self.assertEqual((res["iterations"], res["iterations_inviscid"], res["iterations_viscous"]), ("101", "101", "0"))
+
+
 class TestSeparationScript(unittest.TestCase):
     def test_default_script(self):
         rc, res, info, script = run_driver({}, ["--dry-run"])

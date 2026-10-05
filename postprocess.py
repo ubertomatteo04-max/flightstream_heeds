@@ -64,18 +64,27 @@ def parse_log(path):
     """Tabelle delle iterazioni (Iter, ResVel, ResPres, CL, CDi, CM). Restituisce i valori dell'ultima
     riga e, in 'phases', l'ultima riga di ogni tabella: una tabella in modalita' disaccoppiata, due in
     modalita' accoppiata (run inviscido, poi run con lo strato limite accoppiato; la numerazione delle
-    iterazioni continua nella seconda tabella, verificato su FlightStream 26.1)."""
+    iterazioni continua nella seconda tabella, verificato su FlightStream 26.1).
+    FlightStream ristampa l'intestazione ogni 100 iterazioni (riga di trattini, 'Iteration', trattini):
+    quella NON e' una fase nuova. Una fase nuova si riconosce dalle due righe di trattini prima
+    dell'intestazione (chiusura della tabella precedente + apertura della nuova)."""
     tables = [[]]
+    dashes = 0                      # righe di trattini dall'ultima riga di dati
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         for ln in f:
-            if ln.strip().startswith("Iteration"):
-                if tables[-1]:
+            s = ln.strip().strip("\x00")
+            if s.startswith("-----"):
+                dashes += 1
+                continue
+            if s.startswith("Iteration"):
+                if tables[-1] and dashes >= 2:
                     tables.append([])
                 continue
             parts = ln.split()
             if len(parts) == 6 and parts[0].isdigit():
                 try:
                     tables[-1].append([float("nan") if "*" in p else float(p) for p in parts])
+                    dashes = 0
                 except ValueError:
                     pass
     tables = [t for t in tables if t]
