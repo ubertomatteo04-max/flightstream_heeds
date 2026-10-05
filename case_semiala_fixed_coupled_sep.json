@@ -1,0 +1,88 @@
+{
+  "_nota": "ESPLORATIVO, NON VALIDATO (manca il confronto con XFOIL e la convergenza di mesh). configurazione CS: accoppiamento viscoso + modello di separazione Airfoil (Stratford). Per il resto uguale a case_semiala_fixed.json.",
+  "flightstream_exe": "",
+  "geometry": {
+    "mode": "fixed",
+    "template_fsm": "../semiala_run01.fsm",
+    "reinitialize": true,
+    "_nota": "reinitialize = true: OPEN con LOAD_SOLVER_INITIALIZATION DISABLE, modello fisico e INITIALIZE_SOLVER dal blocco solver"
+  },
+  "case": {
+    "aoa": 4.0,
+    "velocity": 20.0,
+    "sideslip": 0.0
+  },
+  "fluid": {
+    "override_fluid": false,
+    "density": 1.225,
+    "viscosity": 1.78e-05,
+    "pressure": 101324.02,
+    "temperature": 288.166,
+    "specific_heat_ratio": 1.4,
+    "_nota": "valori della sezione fluido (Air) di semiala_run01.fsm, uguali per fixed e ccs_wing. override_fluid = true -> ISA alla quota 'altitude'"
+  },
+  "solver": {
+    "iterations": 500,
+    "convergence": 1e-05,
+    "threads": 0,
+    "model": "INCOMPRESSIBLE",
+    "bl_type": "TRANSITIONAL",
+    "roughness_nm": 0.0,
+    "viscous_coupling": true,
+    "wall_collision_avoidance": false,
+    "init_surfaces": [
+      [
+        1,
+        true
+      ]
+    ],
+    "wake_termination_x": "DEFAULT",
+    "symmetry": "MIRROR",
+    "vorticity_drag_boundaries": [
+      1
+    ],
+    "_nota": "init_surfaces = [indice, quad mesher]; valori dello script del run di riferimento (run_fsm2)"
+  },
+  "reference": {
+    "sref_m2": 1.82208,
+    "lref_m": 0.345091,
+    "symmetry_loads": true,
+    "moment_point_m": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "moment_frame_index": 2
+  },
+  "separation": {
+    "model": "airfoil",
+    "surfaces": [
+      1
+    ],
+    "valarezo": false,
+    "laminar_separation": false,
+    "_nota": "modello di separazione di FlightStream: none (validato) oppure airfoil (esplorativo, criterio di Stratford)"
+  },
+  "wing_frame": {
+    "chord_axis": "+x",
+    "span_axis": "+y",
+    "up_axis": "+z",
+    "span_root_m": 0.0,
+    "_nota": "assi della semiala per dorso/ventre, x/c e strisce (metriche sep_frac_*, x_sep_up, H_max_attached_up); toglierlo per corpi non alari"
+  },
+  "postproc": {
+    "vtk_surfaces": []
+  },
+  "run": {
+    "timeout_s": 450,
+    "save_fsm": false,
+    "license_retries": 2,
+    "license_wait_s": 60
+  },
+  "heeds": {
+    "success_statuses": [
+      0
+    ],
+    "_nota": "codice di uscita 0 se lo status e in questa lista: [0] per l ottimizzazione, [0, 4] per DOE in cui H/cf non sono obiettivi"
+  }
+}

@@ -41,13 +41,13 @@ class TestResultsSchema(unittest.TestCase):
 
     def test_section_order(self):
         names = [s for s, _ in fs_driver.RESULTS_SCHEMA]
-        self.assertEqual(names, ["stato", "carichi", "riferimenti", "strato_limite", "ingressi"])
+        self.assertEqual(names, ["stato", "carichi", "riferimenti", "strato_limite", "ingressi", "viscoso"])
         keys = fs_driver.result_keys()
         self.assertEqual(keys[:2], ["schema_version", "status"])
-        self.assertEqual(keys[-5:], ["aoa", "velocity", "altitude", "sideslip", "chord_scale"])
+        self.assertEqual(keys[34:39], ["aoa", "velocity", "altitude", "sideslip", "chord_scale"])
 
     def test_schema_positions_frozen(self):
-        """Posizioni dello schema 2 (v2.2.1): se questo test fallisce, una chiave e' stata inserita in
+        """Posizioni dello schema 3 (v2.5.0; righe 1-39 = schema 2): se questo test fallisce, una chiave e' stata inserita in
         mezzo o tolta. Per una chiave nuova: aggiungerla in fondo, allungare questo elenco e
         incrementare SCHEMA_VERSION (e il numero atteso in test_schema_version)."""
         frozen = ["schema_version", "status", "converged", "iterations",
@@ -56,11 +56,14 @@ class TestResultsSchema(unittest.TestCase):
                   "xtr_up", "xtr_lo", "H_te_up", "H_te_lo", "H_max_up", "H_max_lo", "cf_min_up", "cf_min_lo",
                   "area_frac_cf_neg", "H_max", "sep_max",
                   "sep_frac_up_le", "x_sep_up", "H_max_attached_up", "x_H_max_attached_up", "sep_frac_lo_te",
-                  "aoa", "velocity", "altitude", "sideslip", "chord_scale"]
-        self.assertEqual(fs_driver.result_keys()[:len(frozen)], frozen)
+                  "aoa", "velocity", "altitude", "sideslip", "chord_scale",
+                  # schema 3: in coda, le righe 1-39 (tagging HEEDS esistente) non cambiano
+                  "viscous_coupling", "separation_model", "iterations_inviscid", "iterations_viscous",
+                  "converged_viscous", "sep_marker_frac_up"]
+        self.assertEqual(fs_driver.result_keys(), frozen)
 
     def test_schema_version(self):
-        self.assertEqual(fs_driver.SCHEMA_VERSION, 2)
+        self.assertEqual(fs_driver.SCHEMA_VERSION, 3)
         config, params = CASES["fixed"]
         with tempfile.TemporaryDirectory() as d:
             with open(os.path.join(d, "params.txt"), "w", encoding="utf-8") as f:
@@ -70,7 +73,7 @@ class TestResultsSchema(unittest.TestCase):
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             with open(os.path.join(d, "results.txt"), encoding="utf-8") as f:
                 first = f.readline().strip()
-        self.assertEqual(first, "schema_version = 2")       # testo cercato da "File contains" in HEEDS
+        self.assertEqual(first, "schema_version = 3")       # testo cercato da "File contains" in HEEDS
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-# fs_pipeline v2.4.1: FlightStream in batch, pronto per HEEDS
+# fs_pipeline v2.5.0: FlightStream in batch, pronto per HEEDS
 
 Script Python (solo libreria standard, Python ≥ 3.8) che, in una cartella di design:
 legge `params.txt` → prepara la geometria → scrive lo script FlightStream → lancia FlightStream
@@ -28,7 +28,7 @@ cd /d "C:\HEEDS prove\Design_1\Analysis_1"
 echo %ERRORLEVEL%
 ```
 Atteso in 15–45 s: codice di uscita 0, `results.txt` uguale a `baseline\fixed\results_baseline.txt`
-(`schema_version = 2`, `status = 0`, CL 0,5767, CDi 0,0077, CDo 0,0125, CMy −0,1993, Re 474985).
+(`schema_version = 3`, `status = 0`, CL 0,5767, CDi 0,0077, CDo 0,0125, CMy −0,1993, Re 474985).
 Il motivo di uno status diverso da 0 è in `run_info.txt`, che termina con
 `FS_DRIVER_RESULT status=<n> success=<0|1>`.
 
@@ -240,8 +240,8 @@ Test automatici (senza FlightStream): `python -m unittest discover -s tests -v` 
   anche l'ultima riga stampata dal driver; `success = 1` se lo status è in `heeds.success_statuses` (cioè
   se il codice di uscita è 0). È l'alternativa al codice di uscita per la condizione "File contains"
   di HEEDS (cercare `success=1`).
-- `results.txt` comincia con `schema_version = 2`. Success condition consigliata in HEEDS: codice di
-  uscita = 0 AND "File contains" `schema_version = 2` in `results.txt` (vedi `HEEDS_SETUP.md`).
+- `results.txt` comincia con `schema_version = 3`. Success condition in HEEDS: codice di uscita = 0
+  (verificato) e, facoltativa, "File contains" `schema_version = 3` in `results.txt` (vedi `HEEDS_SETUP.md`).
 
 | status | Significato | Coefficienti scritti? |
 |---|---|---|
@@ -249,7 +249,7 @@ Test automatici (senza FlightStream): `python -m unittest discover -s tests -v` 
 | 1 | errore generico o di setup (file mancante, chiave non ammessa in params.txt, `fluid.density` mancante, coefficienti incompleti, dry-run) | no |
 | 2 | timeout (`run.timeout_s`) | no |
 | 6 | FlightStream non disponibile: licenza (anche dopo `run.license_retries` nuovi tentativi) oppure un `FlightStream.exe` già attivo prima del lancio (GUI aperta, processo orfano; PID in `run_info.txt`). **Non** è un errore del design, si può rilanciare | no |
-| 3 | solver non convergente (o convergenza non verificabile dal log) | sì, solo per diagnosi |
+| 3 | solver non convergente (o convergenza non verificabile dal log); con `viscous_coupling` anche fase viscosa non convergente o assente nel log | sì, solo per diagnosi |
 | 5 | risultati non fisici (CD ≤ 0, CDo < 0, valori non finiti) | sì, solo per diagnosi |
 | 4 | H/cf non estraibili (CL/CD validi) | sì |
 
@@ -275,6 +275,7 @@ nello stesso ordine per **tutte** le modalità; quelle non pertinenti valgono -9
 | riferimenti | `Sref_m2 Lref_m Re_ref q_Pa` |
 | strato limite | `xtr_up xtr_lo H_te_up H_te_lo H_max_up H_max_lo cf_min_up cf_min_lo area_frac_cf_neg H_max sep_max sep_frac_up_le x_sep_up H_max_attached_up x_H_max_attached_up sep_frac_lo_te` |
 | ingressi (eco) | `aoa velocity altitude sideslip chord_scale` |
+| viscoso (schema 3, v2.5.0) | `viscous_coupling separation_model iterations_inviscid iterations_viscous converged_viscous sep_marker_frac_up` |
 
 Il significato è in `HEEDS_SETUP.md`. **HEEDS legge le risposte per posizione.** Regole:
 - una chiave nuova si aggiunge **solo in fondo al file** (in coda all'ultima sezione, oggi "ingressi"):
@@ -283,14 +284,31 @@ Il significato è in `HEEDS_SETUP.md`. **HEEDS legge le risposte per posizione.*
 - una variabile geometrica nuova (modalità nuova) va aggiunta in fondo a `RESULTS_SCHEMA`: se manca, il
   driver si ferma all'avvio invece di spostare le posizioni in silenzio;
 - **ogni modifica dello schema incrementa `SCHEMA_VERSION`** (scritto come `schema_version` nella prima
-  riga di `results.txt`): così HEEDS, che controlla `schema_version = 2`, rifiuta un results.txt con
+  riga di `results.txt`): così HEEDS, se controlla `schema_version = 3`, rifiuta un results.txt con
   un ordine diverso da quello taggato invece di leggere righe sbagliate;
 - `tests/test_schema.py` controlla che `fixed` e `ccs_wing` scrivano lo stesso elenco, che le
-  posizioni dello schema 2 non cambino e che la prima riga sia `schema_version = 2`
+  posizioni dello schema 3 non cambino e che la prima riga sia `schema_version = 3`
   (`python -m unittest discover -s tests -v`).
 
-Lo schema 2 (v2.2.1) ha riordinato le chiavi rispetto alla v2.1 (riferimenti dopo i carichi, eco
+Lo schema 3 (v2.5.0) aggiunge in coda le 6 righe della sezione "viscoso" (40–45): le righe 1–39 sono quelle
+dello schema 2, quindi il tagging HEEDS esistente resta valido. Lo schema 2 (v2.2.1) aveva riordinato le
+chiavi rispetto alla v2.1 (riferimenti dopo i carichi, eco
 degli ingressi in fondo): andava fatto prima del primo tagging in HEEDS.
+
+### Accoppiamento viscoso e separazione (v2.5.0, ESPLORATIVO, NON VALIDATO)
+
+`solver.viscous_coupling = true`: FlightStream fa prima il run inviscido fino a convergenza, poi un secondo
+run con lo strato limite accoppiato (manuale p. 205); il log ha due tabelle di iterazioni e la numerazione
+continua nella seconda. In `results.txt`: `iterations_inviscid`, `iterations_viscous` (iterazioni della
+seconda fase), `converged_viscous` (residui finali di entrambe le fasi sotto la soglia); se la fase viscosa
+non converge o manca, **status 3**. `separation.model = "airfoil"`: modello Airfoil (Stratford); per il
+manuale applica una pressione semi-empirica sulle facce separate **dopo** il run (p. 207): la soluzione del
+solver non cambia (CL del log uguale a quello senza separazione), cambia la tabella dei carichi (CL, CMy).
+CDi (vorticità) e CDo (attrito) non vedono la separazione: **non c'è una resistenza di pressione**.
+`sep_marker_frac_up` = frazione del dorso con `Separation_marker` ≥ 0,5 (0 senza modello di separazione).
+JSON di esempio: `case_semiala_fixed_coupled.json` (C) e `case_semiala_fixed_coupled_sep.json` (CS), con
+`run.timeout_s = 600`. Risultati del DOE esplorativo e avvertenze: `../STATO.md`. **Nessuna conclusione
+quantitativa sullo stallo** finché non ci sono il confronto con XFOIL e la convergenza di mesh.
 
 ## Il JSON del caso
 
@@ -317,6 +335,7 @@ Le chiavi che iniziano con `_` sono commenti. Esempi: `case_semiala_fixed.json`,
 | `reference.moment_frame_index` | indice del nuovo sistema di riferimento (default 2). **Se il .fsm ha già sistemi utente, va aumentato** (es. 3) |
 | `postproc.vtk_surfaces` | indici delle superfici da esportare nel VTK e usare per H/cf; `[]` = tutte |
 | `postproc.strip`, `bin_width`, `xtr_threshold`, `te_window`, `exclude_le` | (`ccs_wing`) striscia in apertura, larghezza delle fasce in corda, soglia di transizione, finestra del bordo d'uscita, zona di ristagno esclusa |
+| `separation.model`, `surfaces`, `valarezo`, `laminar_separation` | modello di separazione di FlightStream (manuale 26.1 p. 207, 340–341, 344), usato quando lo script inizializza la simulazione: `"none"` (default, comportamento validato) oppure `"airfoil"` (criterio di Stratford; **esplorativo, non validato**); superfici `[1]` o `-1` = tutte; Valarezo solo per ipersostentatori o freccia > 10°; `laminar_separation` = modello di separazione laminare per bassi Re. Lo script scrive sempre `DELETE_SEPARATION -1` (niente modelli rimasti nel .fsm) e `LAMINAR_SEPARATION` |
 | `wing_frame` | assi dell'ala per le metriche di separazione: `{"chord_axis": "+x", "span_axis": "+y", "up_axis": "+z"}` (corda dal bordo d'attacco al bordo d'uscita, apertura dalla radice all'estremità, verso il dorso), opzionali `span_root_m` (default 0: si usano le facce con coordinata in apertura ≥ radice, cioè una semiala; le facce specchiate sono escluse) e `n_strips` (strisce in apertura, default 60). Assente o `null` = le cinque metriche di separazione valgono -999 (es. fusoliera); un valore non valido = status 1 |
 | `postproc.sep_cf`, `le_xc`, `lo_te_xc`, `x_sep_eta`, `h_attached_xc_max` | (con `wing_frame`) soglia di separazione (cella separata se cf < −sep_cf, default 1e-5), x/c del bordo d'attacco per `sep_frac_up_le` (0,15), x/c del bordo d'uscita per `sep_frac_lo_te` (0,8), strisce usate per `x_sep_up` (η 0,05–0,95), x/c massimo per `H_max_attached_up` (0,95) |
 | `run.timeout_s`, `run.save_fsm` | tempo massimo per FlightStream, per tentativo: circa 10 volte il tempo nominale del caso; ogni JSON ha il proprio (semiala: 240 s, per run di 15–27 s; default del driver se manca: 1800 s); salvare `case.fsm` nella cartella del design |

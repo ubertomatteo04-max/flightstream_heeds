@@ -41,7 +41,7 @@ import traceback
 import geometry
 import postprocess as pp
 
-__version__ = "2.4.1"
+__version__ = "2.5.0"
 
 DEFAULTS = {
     "flightstream_exe": "",
@@ -71,6 +71,11 @@ DEFAULTS = {
     # assi dell'ala per dorso/ventre, x/c e strisce: null = metriche di separazione a -999
     # (es. fusoliera). Forma: {"chord_axis": "+x", "span_axis": "+y", "up_axis": "+z"}
     "wing_frame": None,
+    # modello di separazione di FlightStream (manuale 26.1 p. 207, 340-341, 344), usato quando lo
+    # script inizializza la simulazione: model "none" (default, comportamento validato) o "airfoil"
+    # (criterio di Stratford; valarezo solo per ipersostentatori o freccia > 10 gradi);
+    # surfaces -1 = tutte; laminar_separation = modello di separazione laminare per bassi Re
+    "separation": {"model": "none", "surfaces": -1, "valarezo": False, "laminar_separation": False},
     # license_retries: nuovi tentativi (oltre al primo) se la licenza non e' disponibile,
     # ciascuno dopo license_wait_s secondi; se fallisce anche l'ultimo, status 6
     # flightstream_process_names: nomi dei processi di FlightStream (controllo prima del lancio e
@@ -136,7 +141,7 @@ def _onoff(flag):
 # HEEDS legge le risposte per posizione: una chiave nuova si aggiunge SOLO in fondo al file, cioe'
 # in coda all'ultima sezione (vedi README, "Contratto con HEEDS"); mai in mezzo, mai riordinare o
 # togliere chiavi. Ogni modifica dello schema incrementa SCHEMA_VERSION (scritto in results.txt).
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 RESULTS_SCHEMA = (
     ("stato", ["schema_version", "status", "converged", "iterations"]),
     ("carichi", ["CL", "CD", "CDi", "CDo", "CMx", "CMy", "CMz", "L_over_D", "L_N", "D_N"]),
@@ -146,6 +151,9 @@ RESULTS_SCHEMA = (
                        "sep_frac_up_le", "x_sep_up", "H_max_attached_up", "x_H_max_attached_up",
                        "sep_frac_lo_te"]),
     ("ingressi", ["aoa", "velocity", "altitude", "sideslip", "chord_scale"]),
+    # schema 3 (v2.5.0): accoppiamento viscoso e separazione, in coda (righe 1-39 invariate)
+    ("viscoso", ["viscous_coupling", "separation_model", "iterations_inviscid", "iterations_viscous",
+                 "converged_viscous", "sep_marker_frac_up"]),
 )
 
 
@@ -334,14 +342,32 @@ def fluid_lines(cfg, case):
              f"SPECIFIC_HEAT_RATIO {_fmt(f['specific_heat_ratio'])}"]]
 
 
-def physics_lines(sol):
+def physics_lines(sol, sep):
     """Modello fisico del solver, tutto esplicito (anche rugosita' 0 = superficie liscia), cosi'
     non resta nulla dello stato salvato in un .fsm. Il modello del solver (INCOMPRESSIBLE, ...)
-    non e' qui: nel 26.1 e' un parametro di INITIALIZE_SOLVER (geometry.py)."""
-    s = ["SET_SOLVER_STEADY", f"SET_BOUNDARY_LAYER_TYPE {sol['bl_type']}",
-         f"SET_SURFACE_ROUGHNESS {_fmt(float(sol['roughness_nm'] or 0.0))}",
-         f"SET_SOLVER_VISCOUS_COUPLING {_onoff(sol['viscous_coupling'])}"]
-    return [[c] for c in s]
+    non e' qui: nel 26.1 e' un parametro di INITIALIZE_SOLVER (geometry.py).
+    Separazione (manuale 26.1 p. 340-341, 344): i modelli salvati nel .fsm vengono cancellati
+    (DELETE_SEPARATION -1); con model = "airfoil" si crea il modello Airfoil (criterio di
+    Stratford, Valarezo opzionale) sulle superfici indicate; LAMINAR_SEPARATION sempre esplicito."""
+    s = [[c] for c in ("SET_SOLVER_STEADY", f"SET_BOUNDARY_LAYER_TYPE {sol['bl_type']}",
+                       f"SET_SURFACE_ROUGHNESS {_fmt(float(sol['roughness_nm'] or 0.0))}",
+                       f"SET_SOLVER_VISCOUS_COUPLING {_onoff(sol['viscous_coupling'])}")]
+    s.append(["DELETE_SEPARATION -1"])
+    if sep["model"] == "airfoil":
+        ids = sep["surfaces"]
+        head = f"CREATE_AIRFOIL_SEPARATION AIRFOIL_SEP {-1 if ids == -1 else len(ids)} {_onoff(sep['valarezo'])}"
+        s.append([head] if ids == -1 else [head, ",".join(str(int(i)) for i in ids)])
+    s.append([f"LAMINAR_SEPARATION {_onoff(sep['laminar_separation'])}"])
+    return s
+
+
+def check_separation(sep):
+    """Blocco separation del JSON: model 'none' o 'airfoil', surfaces -1 o lista di indici."""
+    if sep["model"] not in ("none", "airfoil"):
+        raise ValueError(f"separation.model = {sep['model']!r} non valido: 'none' oppure 'airfoil'")
+    ids = sep["surfaces"]
+    if ids != -1 and (not isinstance(ids, list) or not ids or any(int(i) < 1 for i in ids)):
+        raise ValueError(f"separation.surfaces = {ids!r} non valido: -1 (tutte) oppure lista di indici >= 1")
 
 
 def vorticity_lines(sol):
@@ -392,7 +418,7 @@ def build_script(cfg, case, geo, files, ref):
     s += geo["lines"]
     s += fluid_lines(cfg, case)
     if explicit:
-        s += physics_lines(sol)
+        s += physics_lines(sol, cfg["separation"])
     s += csys
     s += [[c] for c in (
         f"SOLVER_SET_AOA {_fmt(case['aoa'])}", f"SOLVER_SET_SIDESLIP {_fmt(case['sideslip'])}",
@@ -704,6 +730,13 @@ def extract(files, mode, cfg, case, ref, fluid, res, notes):
     loads, logd = read_coefficients(files, notes)
     res.update(pp.coefficients(loads, logd))
     res.update(pp.convergence(logd, cfg["solver"]["iterations"], cfg["solver"]["convergence"]))
+    coupled = bool(cfg["solver"]["viscous_coupling"])
+    res.update(pp.viscous_convergence(logd, coupled, cfg["solver"]["convergence"]))
+    if coupled and res.get("converged_viscous") != 1:
+        res["converged"] = 0                            # status 3 in decide_status
+        notes.append("fase viscosa (accoppiata) non convergente o assente nel log: "
+                     f"{len(logd['phases']) if logd else 0} tabelle di iterazioni, iterazioni viscose "
+                     f"{res.get('iterations_viscous')}")
     header = (loads or {}).get("_header", {})
     res.update(dimensional(res, case, ref, fluid, header))
     notes.append(f"densita' per q, L, D: {header.get('density') or fluid['rho']:.6g} kg/m^3 "
@@ -836,6 +869,9 @@ def run(a, cfg, workdir, res, notes):
     mode = cfg["geometry"]["mode"]
     # wing_frame controllato subito: un errore nel JSON e' un errore di setup (status 1)
     cfg["_wing_frame"] = pp.parse_wing_frame(cfg["wing_frame"]) if cfg["wing_frame"] else None
+    check_separation(cfg["separation"])
+    res["viscous_coupling"] = int(bool(cfg["solver"]["viscous_coupling"]))
+    res["separation_model"] = {"none": 0, "airfoil": 1}[cfg["separation"]["model"]]
     params_path = os.path.join(workdir, a.params)          # un percorso assoluto resta invariato
     if not os.path.isfile(params_path):
         raise ValueError(f"file dei parametri non trovato: {params_path}")

@@ -61,20 +61,30 @@ def parse_loads(path):
 
 
 def parse_log(path):
-    """Ultima riga della tabella delle iterazioni: Iter, ResVel, ResPres, CL, CDi, CM."""
-    rows = []
+    """Tabelle delle iterazioni (Iter, ResVel, ResPres, CL, CDi, CM). Restituisce i valori dell'ultima
+    riga e, in 'phases', l'ultima riga di ogni tabella: una tabella in modalita' disaccoppiata, due in
+    modalita' accoppiata (run inviscido, poi run con lo strato limite accoppiato; la numerazione delle
+    iterazioni continua nella seconda tabella, verificato su FlightStream 26.1)."""
+    tables = [[]]
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         for ln in f:
+            if ln.strip().startswith("Iteration"):
+                if tables[-1]:
+                    tables.append([])
+                continue
             parts = ln.split()
             if len(parts) == 6 and parts[0].isdigit():
                 try:
-                    rows.append([float("nan") if "*" in p else float(p) for p in parts])
+                    tables[-1].append([float("nan") if "*" in p else float(p) for p in parts])
                 except ValueError:
                     pass
-    if not rows:
+    tables = [t for t in tables if t]
+    if not tables:
         raise ValueError(f"nessuna tabella di iterazioni trovata in {path}")
-    it, rv, rp, cl, cdi, cm = rows[-1]
-    return {"iterations": int(it), "res_vel": rv, "res_pres": rp, "CL": cl, "CDi": cdi, "CMy": cm}
+    it, rv, rp, cl, cdi, cm = tables[-1][-1]
+    phases = [{"iterations": int(t[-1][0]), "res_vel": t[-1][1], "res_pres": t[-1][2]} for t in tables]
+    return {"iterations": int(it), "res_vel": rv, "res_pres": rp, "CL": cl, "CDi": cdi, "CMy": cm,
+            "phases": phases}
 
 
 def coefficients(loads, logd):
@@ -99,6 +109,28 @@ def convergence(logd, iter_max, threshold):
     below = finite and max(res) < threshold
     early = finite and logd["iterations"] < iter_max
     return {"converged": int(below or early), "iterations": logd["iterations"]}
+
+
+def viscous_convergence(logd, coupled, threshold):
+    """Fase viscosa (solo in modalita' accoppiata): iterazioni della fase inviscida e di quella accoppiata
+    e convergenza di entrambe (residui finali finiti e sotto la soglia). In modalita' disaccoppiata
+    iterations_viscous = 0 e converged_viscous = None (-999 in results.txt)."""
+    if not logd:
+        return {"iterations_inviscid": None, "iterations_viscous": None, "converged_viscous": None}
+    ph = logd["phases"]
+    out = {"iterations_inviscid": ph[0]["iterations"], "iterations_viscous": 0, "converged_viscous": None}
+    if not coupled:
+        return out
+    if len(ph) < 2:
+        out["converged_viscous"] = 0                    # nessuna fase accoppiata nel log
+        return out
+
+    def ok(p):
+        r = (p["res_vel"], p["res_pres"])
+        return all(math.isfinite(x) for x in r) and max(r) < threshold
+    out["iterations_viscous"] = ph[-1]["iterations"] - ph[0]["iterations"]
+    out["converged_viscous"] = int(ok(ph[0]) and ok(ph[-1]))
+    return out
 
 
 def check_physics(res):
@@ -280,7 +312,9 @@ def write_profiles(path, prof):
 # --------------------------------------------------------------------------------------
 # 4. Metriche di separazione di un'ala (blocco "wing_frame" del JSON)
 # --------------------------------------------------------------------------------------
-WING_KEYS = ["sep_frac_up_le", "x_sep_up", "H_max_attached_up", "x_H_max_attached_up", "sep_frac_lo_te"]
+WING_KEYS = ["sep_frac_up_le", "x_sep_up", "H_max_attached_up", "x_H_max_attached_up", "sep_frac_lo_te",
+             "sep_marker_frac_up"]
+SEP_MARKER_ON = 0.5       # Separation_marker: 0 attaccato, 1 "fully separated turbulent flows" (manuale p. 245)
 _AXES = {"x": 0, "y": 1, "z": 2}
 _FRAME_KEYS = {"chord_axis", "span_axis", "up_axis", "span_root_m", "n_strips"}
 TIP_NORMAL = 0.7          # |componente in apertura della normale| oltre cui una faccia e' d'estremita'
@@ -388,7 +422,9 @@ def wing_frame_metrics(vtk, frame, pp):
     if a_up <= 0 or a_lo <= 0:
         raise ValueError("wing_frame: area del dorso o del ventre nulla")
     out = {"sep_frac_up_le": area([c for c in up if sep(c) and c["xc"] < pp["le_xc"]]) / a_up,
-           "sep_frac_lo_te": area([c for c in lo if sep(c) and c["xc"] > pp["lo_te_xc"]]) / a_lo}
+           "sep_frac_lo_te": area([c for c in lo if sep(c) and c["xc"] > pp["lo_te_xc"]]) / a_lo,
+           # Separation_marker di FlightStream (diverso da 0 solo con un modello di separazione)
+           "sep_marker_frac_up": area([c for c in up if f["sep"][c["i"]] >= SEP_MARKER_ON]) / a_up}
     e0, e1 = pp["x_sep_eta"]
     n = frame["n_strips"]
     first = [c["xc"] for c in up if sep(c) and e0 <= (c["strip"] + 0.5) / n <= e1]

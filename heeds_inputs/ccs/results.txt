@@ -1,4 +1,4 @@
-schema_version = 2
+schema_version = 3
 status = 0
 converged = 1
 iterations = 91
@@ -37,3 +37,9 @@ velocity = 20
 altitude = -999
 sideslip = 0
 chord_scale = 1
+viscous_coupling = 0
+separation_model = 0
+iterations_inviscid = 91
+iterations_viscous = 0
+converged_viscous = -999
+sep_marker_frac_up = 0

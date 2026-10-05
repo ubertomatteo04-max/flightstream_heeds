@@ -48,7 +48,7 @@ class TestSuccessContract(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertEqual(info[-1], "FS_DRIVER_RESULT status=4 success=0")
         self.assertEqual(last, "FS_DRIVER_RESULT status=4 success=0")
-        self.assertEqual(res["schema_version"], "2")
+        self.assertEqual(res["schema_version"], "3")
 
     def test_status4_accepted_in_doe(self):
         rc, last, info, res = run_driver({"heeds": {"success_statuses": [0, 4]}})
