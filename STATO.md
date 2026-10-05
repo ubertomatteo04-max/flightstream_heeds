@@ -641,6 +641,40 @@ XFOIL non usato in questa fase (`reference\xfoil\` resta com'è).
   il massimo è su un plateau (cl a η 0,02 e 0,06 differiscono alla 4ª cifra), quindi `eta_cl_sec_max` salta tra 0,06 e
   0,25 (0°): non usarlo come risposta di ottimizzazione; `cl_sec_max` sì.
 
+**Parte 3 – convergenza di mesh (D, ccs_wing, chord_scale 1) – FERMA ALLO STOP**
+- Blocco JSON `mesh` (ccs_wing): `u_pts`, `u_growth_type`, `u_growth_rate`, `u_periodicity`, `v_*` → righe
+  `Mesh_U`/`Mesh_V` del CCS (manuale p. 82: growth_type 3 = successiva su due lati, con periodicity 2 addensa a LE e TE).
+  Default = mesh attuale: CCS e script generati **identici byte per byte** alla baseline; run medium = baseline ccs.
+  `geometry.mesh_u/mesh_v` ora danno errore. Test `tests\test_mesh.py`.
+- Run a 4° e 12°, `diagnostica\mesh\` (`run_mesh.py`, `gci.py` → `gci.md`, `gci.csv`). Due famiglie:
+  A = growth rate 1,1 fisso (come chiesto: solo i punti × 1,5), B = growth rate scalato 1,1^(120/u_pts), perché con 1,1
+  fisso il primo pannello al LE scala di 3–4,5 invece che di 1,5 (famiglia non simile, Celik la richiede simile).
+
+| livello | Mesh_U / Mesh_V, growth U | pannelli | 1° pannello al LE [x/c] | tempo [s] 4° / 12° |
+|---|---|---|---|---|
+| coarse (A) | 80 / 43, 1,1 | 6806 | 0,00944 | 17 / 16 |
+| coarse (B) | 80 / 43, 1,15369 | 6810 | 0,00512 | 11 / 13 |
+| medium | 120 / 64, 1,1 | 15262 | 0,00321 | 44 / 27 |
+| fine (B) | 180 / 96, 1,0656 | 34464 | 0,00205 | 60 / 63 |
+| fine (A) | 180 / 96, 1,1 | 34454 | 0,00072 | 55 / 57 |
+
+  Differenza medium–fine (famiglia B; famiglia A fra parentesi): CL −0,92 / −0,63 % (0,05 / −0,36) a 4 / 12°; CDi
+  −1,18 / −0,69 % (−0,15 / −0,50); CMy −1,24 / −0,94 % (0,20 / −0,35); cl_sec_max −1,06 / −0,81 %; **CDo −2,34 / −3,83 %
+  (−10,7 / −5,0 %)**. Carichi inviscidi entro il 2 % in entrambe le famiglie; **CDo no** (attrito dello strato limite
+  integrale, molto sensibile al pannello al LE: in A cresce del 12 % a ogni raffinamento). Convergenza spesso
+  "divergente" (R > 1): le differenze sono all'ultima cifra stampata (CMy, CDo a 4 decimali) o non asintotiche;
+  p e GCI in `gci.md`. sep_frac_up_le e x_sep_up a 12° cambiano del 10–250 %: indicatori qualitativi, come deciso.
+- **Bordo d'uscita** (`te_compare.py` → `te.md`, `te_cp.png`): il raccordo viene dal parametro CCS
+  `Blend_trailing_edges` (manuale p. 84); il `.fsm` di fixed lo eredita (è costruito dallo stesso CCS). Varianti:
+  `sharp` (sezioni chiuse) NON fedele: il vertice del TE del ventre viene portato su quello del dorso, il ventre si
+  piega in su nell'ultimo 1 % di corda, CL −33 % a 4°; `blunt` (`Open_Cross_Sections` + `Blunt_trailing_edges`,
+  `AUTO_DETECT_BASE_REGIONS`, `SET_BASE_REGION_TRAILING_EDGES -1`, p. 316; `proto_te_blunt.py`) fedele (TE a z 0,01483 e
+  0,01708 m come nel CCS, 129 bordi d'uscita marcati), Cp regolare vicino al TE (la blended ha due gobbe a x/c 0,88–0,92,
+  dove comincia il raccordo). **Effetto: CL −4,1 / −3,9 %, CMy −5,9 / −6,5 % a 4 / 12°** (oltre l'1 %); bolla sul ventre
+  0,876–0,926 (blended 0,904–0,926) a 4°, sep_frac_lo_te 0,040 contro 0,031.
+- **STOP** (due condizioni): medium non supera il 2 % sulla CDo; la variante TE fedele cambia CL e CMy di più dell'1 %.
+  Default NON cambiati (mesh e TE attuali); proposta in attesa di decisione.
+
 ## 4. Metriche di separazione: implementate e ancora proposte
 
 Implementate (v2.2.0, con `wing_frame`): `sep_frac_up_le`, `x_sep_up`, `H_max_attached_up`,

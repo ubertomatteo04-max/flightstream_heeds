@@ -80,6 +80,10 @@ DEFAULTS = {
     # carichi di sezione di FlightStream dopo il run. semispan_m: semiapertura; in ccs_wing viene
     # dal CCS, in fixed va nel JSON. Senza wing_frame o semiapertura: chiavi cl_sec_* a -999.
     "spanload": {"enabled": True, "n_sections": 40, "semispan_m": None},
+    # mesh del componente portante in ccs_wing (righe Mesh_U/Mesh_V del CCS, manuale 26.1 p. 82); default =
+    # mesh del CCS di partenza (quella dei risultati validati). In fixed la mesh e' quella del .fsm e questo blocco non si usa.
+    "mesh": {"u_pts": 120, "u_growth_type": 3, "u_growth_rate": 1.1, "u_periodicity": 2,
+             "v_pts": 64, "v_growth_type": 1, "v_growth_rate": 1.0, "v_periodicity": 1},
     # license_retries: nuovi tentativi (oltre al primo) se la licenza non e' disponibile,
     # ciascuno dopo license_wait_s secondi; se fallisce anche l'ultimo, status 6
     # flightstream_process_names: nomi dei processi di FlightStream (controllo prima del lancio e

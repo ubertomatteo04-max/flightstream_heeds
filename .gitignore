@@ -20,3 +20,7 @@ diagnostica/separazione/runs_log*.txt
 reference/xfoil/work/
 !reference/xfoil/*.csv
 !diagnostica/separazione/tabella_varianti.csv
+
+# v2.6.0: cartelle dei run diagnostici (rigenerabili)
+diagnostica/*/runs/
+diagnostica/*/runs_log*.txt

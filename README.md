@@ -333,7 +333,9 @@ Le chiavi che iniziano con `_` sono commenti. Esempi: `case_semiala_fixed.json`,
 | `geometry.mode` | `fixed` (template .fsm) oppure `ccs_wing` (semiala da CCS); le altre chiavi di `geometry` dipendono dalla modalità e le legge solo `geometry.py` |
 | `geometry.template_fsm` | (`fixed`) il .fsm già pronto: la mesh e il fluido vengono da lì |
 | `geometry.reinitialize` | (`fixed`) `true` (default) = OPEN con `LOAD_SOLVER_INITIALIZATION DISABLE`, modello fisico e `INITIALIZE_SOLVER` dal blocco `solver`; `false` = inizializzazione e modello fisico salvati nel .fsm. La vecchia chiave `open_options` non è più ammessa (errore) |
-| `geometry.base_ccs`, `mesh_u`, `mesh_v`, `te_type`, `root_cap_tol_m` | (`ccs_wing`) CCS di partenza, pannelli, tipo di bordo d'uscita (`blended`/`sharp`/`blunt`), tolleranza in y per togliere il tappo di radice |
+| `geometry.base_ccs`, `te_type`, `root_cap_tol_m` | (`ccs_wing`) CCS di partenza, tipo di bordo d'uscita (`blended` = attuale; `sharp` NON fedele, CL −33 %; `blunt` richiede le base region, vedi STATO §3.14), tolleranza in y per togliere il tappo di radice |
+| `mesh.u_pts`, `u_growth_type`, `u_growth_rate`, `u_periodicity`, `v_pts`, `v_growth_type`, `v_growth_rate`, `v_periodicity` | (`ccs_wing`, v2.6.0) righe `Mesh_U` (corda) e `Mesh_V` (apertura) del CCS, manuale 26.1 p. 82; default 120;3;1.1;2 e 64;1;1.0;1 = mesh attuale (convergenza: STATO §3.14). `geometry.mesh_u/mesh_v` non sono più accettate |
+| `spanload.enabled`, `n_sections`, `semispan_m` | (v2.6.0) carico lungo l'apertura, vedi sopra; `semispan_m` obbligatoria in `fixed` |
 | `case` | valori di default di `aoa` [deg], `velocity` [m/s], `sideslip` [deg], `altitude` [m] (solo con `override_fluid`) e delle variabili geometriche; `params.txt` li sovrascrive |
 | `fluid.override_fluid` | `false` (default) = fluido del blocco `fluid` / del .fsm; `true` = fluido ISA alla quota `altitude`. Vale per tutte le modalità |
 | `fluid.density`, `viscosity`, `pressure`, `temperature`, `specific_heat_ratio` | fluido del .fsm di riferimento [kg/m³, Pa·s, Pa, K, –]. `density` è sempre obbligatoria (q, L, D); in `ccs_wing` lo sono tutte (`FLUID_PROPERTIES`) |

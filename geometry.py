@@ -166,7 +166,7 @@ def _ccs_wing(params, cfg, workdir):
     if not os.path.isfile(src):
         raise ValueError(f"geometry.base_ccs non trovato: {src}")
     dst = os.path.join(workdir, "case_ccs.csv")
-    sections = prepare_ccs(src, dst, params["chord_scale"], g["mesh_u"], g["mesh_v"], g["te_type"])
+    sections = prepare_ccs(src, dst, params["chord_scale"], mesh_lines(cfg), g["te_type"])
     ref = wing_reference(sections)
     tol = g["root_cap_tol_m"]
     if abs(ref["y_root"]) > tol:
@@ -210,7 +210,35 @@ def _is_lifting(block):
     return any(ln.strip().lower().startswith("liftingsurface;true") for ln in block)
 
 
-def _scale_lifting_block(block, chord_scale, mesh_u, mesh_v, te_type):
+MESH_KEYS = {"u_pts": int, "u_growth_type": int, "u_growth_rate": float, "u_periodicity": int,
+             "v_pts": int, "v_growth_type": int, "v_growth_rate": float, "v_periodicity": int}
+
+
+def mesh_lines(cfg):
+    """Righe Mesh_U / Mesh_V del CCS dal blocco 'mesh' del JSON (manuale 26.1 p. 82):
+    Mesh_U;u_pts;growth_type;growth_rate;periodicity (in corda), Mesh_V;... (in apertura).
+    growth_type: 1 uniforme, 2 successiva, 3 successiva su due lati (addensa a LE e TE con
+    periodicity 2), 4 successiva inversa. Default = mesh del CCS di partenza (120;3;1.1;2 e 64;1;1.0;1)."""
+    if "mesh_u" in cfg["geometry"] or "mesh_v" in cfg["geometry"]:
+        raise ValueError("geometry.mesh_u/mesh_v non sono piu' usate (v2.6.0): usa il blocco 'mesh' "
+                         "(u_pts, u_growth_type, u_growth_rate, u_periodicity, v_pts, ...)")
+    m = cfg["mesh"]
+    for k, typ in MESH_KEYS.items():
+        v = m.get(k)
+        if v is None or (typ is int and (not float(v).is_integer())):
+            raise ValueError(f"mesh.{k} = {v!r} non valido")
+    if int(m["u_pts"]) < 2 or int(m["v_pts"]) < 2:
+        raise ValueError("mesh.u_pts e mesh.v_pts devono essere > 1")
+    for d in "uv":
+        if int(m[f"{d}_growth_type"]) not in (1, 2, 3, 4):
+            raise ValueError(f"mesh.{d}_growth_type deve essere 1, 2, 3 o 4")
+        if float(m[f"{d}_growth_rate"]) <= 0 or int(m[f"{d}_periodicity"]) < 1:
+            raise ValueError(f"mesh.{d}_growth_rate deve essere > 0 e mesh.{d}_periodicity >= 1")
+    return [f"Mesh_{d.upper()};{int(m[d + '_pts'])};{int(m[d + '_growth_type'])};{float(m[d + '_growth_rate'])!r};"
+            f"{int(m[d + '_periodicity'])}" for d in "uv"]
+
+
+def _scale_lifting_block(block, chord_scale, mesh, te_type):
     """Scala la corda di ogni sezione attorno al suo bordo d'attacco (x e z scalati, y invariata)
     e riscrive Mesh_U/Mesh_V e i parametri del bordo d'uscita. Restituisce (righe, sezioni)."""
     if te_type.lower() not in TE_PARAMS:
@@ -231,13 +259,12 @@ def _scale_lifting_block(block, chord_scale, mesh_u, mesh_v, te_type):
             continue
         out.append(ln)
         if low.startswith("liftingsurface;true"):
-            out.append(f"Mesh_U;{int(mesh_u)};3;1.1;2")
-            out.append(f"Mesh_V;{int(mesh_v)};1;1.0;1")
+            out.extend(mesh)
             out.extend(TE_PARAMS[te_type.lower()])
     return out, sections
 
 
-def prepare_ccs(src, dst, chord_scale, mesh_u, mesh_v, te_type):
+def prepare_ccs(src, dst, chord_scale, mesh, te_type):
     """Copia il CCS scalando solo il componente portante (gli altri restano identici).
     Restituisce le sezioni scalate del componente portante."""
     with open(src, "r", encoding="utf-8-sig") as f:
@@ -251,7 +278,7 @@ def prepare_ccs(src, dst, chord_scale, mesh_u, mesh_v, te_type):
     out, sections = [], []
     for b in blocks:
         if _is_lifting(b):
-            new_lines, sections = _scale_lifting_block(b, chord_scale, mesh_u, mesh_v, te_type)
+            new_lines, sections = _scale_lifting_block(b, chord_scale, mesh, te_type)
             out += new_lines
         else:
             out += b

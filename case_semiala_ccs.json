@@ -4,9 +4,12 @@
   "geometry": {
     "mode": "ccs_wing",
     "base_ccs": "../semiala_ccs_U120_V64_blended.csv",
-    "mesh_u": 120, "mesh_v": 64, "te_type": "blended", "root_cap_tol_m": 1e-4
+    "te_type": "blended", "root_cap_tol_m": 1e-4
   },
   "case": {"aoa": 4.0, "velocity": 20.0, "sideslip": 0.0, "chord_scale": 1.0},
+  "mesh": {"u_pts": 120, "u_growth_type": 3, "u_growth_rate": 1.1, "u_periodicity": 2,
+           "v_pts": 64, "v_growth_type": 1, "v_growth_rate": 1.0, "v_periodicity": 1,
+           "_nota": "Mesh_U (corda: 3 = addensata a LE e TE con periodicity 2) e Mesh_V (apertura, uniforme) del CCS, manuale 26.1 p. 82; valori = mesh attuale, quella dei risultati validati (convergenza di mesh: STATO.md §3.14)"},
   "fluid": {"override_fluid": false, "density": 1.225, "viscosity": 1.78e-5, "pressure": 101324.02,
             "temperature": 288.166, "specific_heat_ratio": 1.4,
             "_nota": "valori della sezione fluido (Air) di semiala_run01.fsm, uguali per fixed e ccs_wing. override_fluid = true -> ISA alla quota 'altitude'"},
