@@ -41,7 +41,7 @@ import traceback
 import geometry
 import postprocess as pp
 
-__version__ = "2.7.0"
+__version__ = "2.8.1"
 
 DEFAULTS = {
     "flightstream_exe": "",
@@ -135,7 +135,7 @@ FILES = {"script": "fs_script.txt", "ccs": "case_ccs.csv", "loads": "loads.txt",
          "vtk": "surface.vtk", "log": "fs_log.txt", "stdout": "fs_stdout.txt",
          "results": "results.txt", "info": "run_info.txt", "profiles": "bl_profiles.csv",
          "fsm_out": "case.fsm", "spanload_raw": "spanload.txt", "spanload": "spanload.csv",
-         "spanload_raw_N": "spanload_N.txt"}
+         "spanload_raw_N": "spanload_N.txt", "loads_N": "loads_N.txt"}
 
 
 def log(msg):
@@ -158,7 +158,7 @@ def _onoff(flag):
 # HEEDS legge le risposte per posizione: una chiave nuova si aggiunge SOLO in fondo al file, cioe'
 # in coda all'ultima sezione (vedi README, "Contratto con HEEDS"); mai in mezzo, mai riordinare o
 # togliere chiavi. Ogni modifica dello schema incrementa SCHEMA_VERSION (scritto in results.txt).
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 RESULTS_SCHEMA = (
     ("stato", ["schema_version", "status", "converged", "iterations"]),
     ("carichi", ["CL", "CD", "CDi", "CDo", "CMx", "CMy", "CMz", "L_over_D", "L_N", "D_N"]),
@@ -176,6 +176,8 @@ RESULTS_SCHEMA = (
     # schema 5 (v2.7.0): pianta della modalita' ccs_planform (valori effettivi: c_root derivato se size_by = S_half)
     ("planform", ["c_root", "taper", "twist_tip_deg", "b_half", "S_half"]),
     # schema 6 (v2.7.0): trim e missione, in coda (righe 1-54 invariate). D_N, Sref_m2 e b_half: chiavi esistenti
+    # schema 7 (v2.8.1): nessuna chiave nuova; CAMBIANO valore e definizione di D_N (riga 14) = Di_N + D0_N e di D0_N
+    # (riga 57) = resistenza d'attrito dal foglio dei carichi in NEWTONS (non piu' quantizzati a 4 decimali di CD/CDo)
     ("missione", ["alpha_trim", "Di_N", "D0_N", "M_root_Nm", "CLmax_wing", "CL_req", "eta_stall", "Re_tip", "AR",
                   "e_span"]),
 )
@@ -496,6 +498,8 @@ def build_script(cfg, case, geo, files, ref):
         f"SET_SOLVER_ANALYSIS_LOADS_FRAME {frame}", "SET_LOADS_AND_MOMENTS_UNITS COEFFICIENTS",
         f"SET_ANALYSIS_SYMMETRY_LOADS {_onoff(rf['symmetry_loads'])}")]
     s.append(["EXPORT_SOLVER_ANALYSIS_SPREADSHEET", files["loads"]])
+    if files.get("loads_N"):    # stesso foglio in newton (manuale 26.1 p. 349): D0 con 4 decimali in N, non in CDo
+        s += [["SET_LOADS_AND_MOMENTS_UNITS NEWTONS"], ["EXPORT_SOLVER_ANALYSIS_SPREADSHEET", files["loads_N"]]]
     s.append(["SET_VTK_EXPORT_VARIABLES -1 DISABLE"])
     s.append(["EXPORT_SOLVER_ANALYSIS_VTK", files["vtk"]] + surfaces_lines(cfg["postproc"]["vtk_surfaces"]))
     if cfg.get("_span"):
@@ -838,6 +842,13 @@ def extract(files, mode, cfg, case, ref, fluid, res, notes):
     res.update(pp.coefficients(loads, logd))
     if logd:        # 5 cifre significative (la tabella dei carichi ne ha 4 decimali): per Di_N, e_span, trim
         res["_CL_log"], res["_CDi_log"] = logd["CL"], logd["CDi"]
+    path_n = files.get("loads_N")
+    if path_n:
+        try:
+            ln = pp.parse_loads_newtons(path_n)
+            res["_D0_N_exp"] = ln["CDo"]
+        except (OSError, ValueError) as e:
+            notes.append(f"carichi in newton: {type(e).__name__}: {e} (D0_N dai coefficienti)")
     res.update(pp.convergence(logd, cfg["solver"]["iterations"], cfg["solver"]["convergence"]))
     coupled = bool(cfg["solver"]["viscous_coupling"])
     res.update(pp.viscous_convergence(logd, coupled, cfg["solver"]["convergence"]))
@@ -894,7 +905,7 @@ def clean_old(workdir, keep_inputs):
     """Cancella i risultati di run precedenti (con --extract-only si tengono loads/log/vtk)."""
     names = ["results", "info", "profiles", "spanload"] + ([] if keep_inputs else
                                                            ["loads", "vtk", "log", "stdout", "spanload_raw",
-                                                            "spanload_raw_N"])
+                                                            "spanload_raw_N", "loads_N"])
     for k in names:
         p = os.path.join(workdir, FILES[k])
         if os.path.exists(p):
@@ -974,6 +985,7 @@ def parse_args(argv):
     ap.add_argument("--loads"); ap.add_argument("--log"); ap.add_argument("--vtk")
     ap.add_argument("--spanload", help="carichi di sezione gia' esportati (con --extract-only)")
     ap.add_argument("--spanload-n", help="carichi di sezione in newton gia' esportati (con --extract-only)")
+    ap.add_argument("--loads-n", help="foglio dei carichi in newton gia' esportato (con --extract-only)")
     ap.add_argument("--probes", action="store_true", help="scrive gli script di prova in probes/")
     return ap.parse_args(argv)
 
@@ -1017,18 +1029,31 @@ def check_mission(cfg, case, fluid, notes):
                              f"{m['V_cruise']:g} m/s (il trim si fa alla velocita' di crociera)")
 
 
-def mission_metrics(cfg, res, fluid):
+def mission_metrics(cfg, res, fluid, notes=None):
     """Grandezze di missione dai risultati di UN run (quello ad alfa* con il trim). Di_N ed e_span usano CL e CDi
-    del log (5 cifre); D0_N = CDo q Sref; AR = (2 b_half)^2 / Sref; e_span = CL^2 / (pi AR CDi);
+    del log (5 cifre); D0_N dal foglio dei carichi in NEWTONS (se manca: CDo q Sref); D_N = Di_N + D0_N (schema 7);
+    AR = (2 b_half)^2 / Sref; e_span = CL^2 / (pi AR CDi);
     CL_req = W_N / (0,5 rho V_min^2 Sref); Re_tip = V_cruise c_tip / nu, nu = mu/rho del fluido del caso."""
     m = cfg["mission"]
     q, S = res.get("q_Pa"), res.get("Sref_m2")
     cl, cdi = res.get("_CL_log", res.get("CL")), res.get("_CDi_log", res.get("CDi"))
+    notes = notes if notes is not None else []
     if q and S:
         if cdi is not None:
             res["Di_N"] = cdi * q * S
-        if res.get("CDo") is not None:
-            res["D0_N"] = res["CDo"] * q * S
+        d0_coef = res["CDo"] * q * S if res.get("CDo") is not None else None
+        if res.get("_D0_N_exp") is not None:
+            res["D0_N"] = res["_D0_N_exp"]
+            if d0_coef is not None:
+                quant = 0.5e-4 * q * S          # meta' dell'ultima cifra di CDo (4 decimali)
+                d = res["D0_N"] - d0_coef
+                msg = (f"D0_N dal foglio in newton {res['D0_N']:.5f} N; CDo q Sref {d0_coef:.5f} N; differenza {d:+.5f} N "
+                       f"(quantizzazione di CDo +/- {quant:.5f} N)")
+                notes.append(msg if abs(d) <= quant * 1.0001 else "ATTENZIONE " + msg + ": oltre la quantizzazione")
+        else:
+            res["D0_N"] = d0_coef
+        if res.get("Di_N") is not None and res.get("D0_N") is not None:
+            res["D_N"] = res["Di_N"] + res["D0_N"]          # schema 7: D_N = Di_N + D0_N
     span = cfg.get("_span") or cfg.get("_geo_span")
     if span and span.get("b_half") and S:
         res["AR"] = (2.0 * span["b_half"]) ** 2 / S
@@ -1128,7 +1153,7 @@ def solve(a, cfg, workdir, case, fluid, res, notes):
     rf = cfg["reference"]
     if a.extract_only:
         files = {"loads": a.loads, "log": a.log, "vtk": a.vtk, "spanload_raw": a.spanload,
-                 "spanload_raw_N": a.spanload_n,
+                 "spanload_raw_N": a.spanload_n, "loads_N": a.loads_n,
                  "profiles": os.path.join(workdir, FILES["profiles"]),
                  "spanload": os.path.join(workdir, FILES["spanload"])}
         ref = {"Sref": rf["sref_m2"], "Lref": rf["lref_m"]}
@@ -1160,7 +1185,7 @@ def solve(a, cfg, workdir, case, fluid, res, notes):
         if rc != 0:
             notes.append(f"FlightStream ha restituito il codice {rc}")
     status = extract(files, mode, cfg, case, ref, fluid, res, notes)
-    mission_metrics(cfg, res, fluid)
+    mission_metrics(cfg, res, fluid, notes)
     if a.validate:
         validate(res, cfg["validation"])
     return status

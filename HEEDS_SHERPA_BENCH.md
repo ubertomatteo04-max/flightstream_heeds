@@ -9,7 +9,7 @@
 | JSON (nel comando) | `C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline\configs\esplorativi\case_planform_taper_S.json` |
 
 Dati letti dai file reali il 2026-10-06 (`heeds_inputs\planform_S\`, `configs\esplorativi\case_planform_taper_S.json`,
-dry-run del driver senza FlightStream). Driver v2.7.0, schema 6. Procedura generale: `HEEDS_SETUP.md`.
+dry-run del driver senza FlightStream). Driver v2.8.1, schema 7 (D_N = Di_N + D0_N, D0_N dal foglio dei carichi in newton). Procedura generale: `HEEDS_SETUP.md`.
 
 `heeds_inputs\planform_S\` è la cartella del benchmark (`size_by: "S_half"`). **Non usare** `heeds_inputs\planform\`:
 quella è la baseline con `size_by: "c_root"` (riga 7 = `c_root`) e con questo JSON dà status 1 ("chiavi non ammesse:
@@ -53,13 +53,13 @@ Contenuto reale del file (righe 1–4 commenti ereditati dalla baseline planform
 Fissi anche nel JSON: `size_by: "S_half"`, trim attivo. Le righe fisse si possono lasciare non taggate (il driver le legge
 dal file); se si taggano, vanno come costanti con questi valori.
 
-## 3. results.txt: `heeds_inputs\planform_S\results.txt` (schema 6, 64 righe) – risposte del benchmark
+## 3. results.txt: `heeds_inputs\planform_S\results.txt` (schema 7, 64 righe) – risposte del benchmark
 
 | risposta | riga | chiave | baseline (taper 1) | uso |
 |---|---|---|---|---|
 | status | **2** | `status` | 0 | vincolo = 0 (oltre al codice di uscita) |
 | Di_N | **56** | `Di_N` | 1.13727 | **obiettivo: minimo** |
-| D_N | **14** | `D_N` | 6.51759 | solo monitor (quantizzato: gradini di 0,045 N, vedi §6) |
+| D_N | **14** | `D_N` | 6.55887 | monitor (schema 7: = Di_N + D0_N, non più quantizzato) |
 | e_span | **64** | `e_span` | 0.887519 | monitor |
 | alpha_trim | **55** | `alpha_trim` | 1.43952 | monitor (α* del trim) |
 | Re_tip | **62** | `Re_tip` | 474985 | monitor |
@@ -117,8 +117,8 @@ Tagging: delimitatore `=`, valore in colonna 2 (come nello Study_2). Riga 35 (`a
 - Minimo di `Di_N` per **taper tra circa 0,33 e 0,43** (0,35 e 0,40 coincidono: 1,0578 N; parabola 0,382).
 - **Di_N ≈ 1,058 N**, **e_span ≈ 0,954**; α* ≈ 1,354°; taper 1 → Di_N 1,1373 N, e_span 0,888.
 - Con il segnaposto: CLmax_wing ≈ 1,14 e eta_stall ≈ 0,57–0,66 vicino all'ottimo.
-- Usare **Di_N**, non D_N, come obiettivo: D_N è quantizzato a 4 decimali di CD (gradini di 0,045 N, 0,7 %): SHERPA
-  vedrebbe un altopiano a gradini. Rumore di Di_N lungo il taper < 0,05 %.
+- Obiettivo del benchmark: **Di_N** (ottimo teorico noto). Dallo schema 7 anche D_N è liscio (residuo di un fit quadratico
+  0,05 % su taper 0,30–0,50, 7C.1), ma il suo minimo non coincide con quello di Di_N perché D0_N cresce con il taper. Rumore di Di_N lungo il taper < 0,05 %.
 
 ## 7. Preflight (prima di lanciare)
 

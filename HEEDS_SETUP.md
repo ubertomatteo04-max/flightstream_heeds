@@ -12,7 +12,7 @@ manuale né verificato è segnato **DA VERIFICARE**.
 
 Progetto `C:\Users\UtenteLocale\Desktop\heeds\semiala_fixed\semiala.heeds`, "Evaluate baseline design":
 1 design, 0 errori, 53 s. status 0, CL 0,5767, CD 0,0202, CMy −0,1993, L_over_D 28,5495, aoa 4: uguale al
-riferimento e a `heeds_inputs\fixed\results.txt` (allora 39 righe, schema 2; oggi 64 righe, schema 6: le righe 1–39 hanno le stesse chiavi e gli stessi valori).
+riferimento e a `heeds_inputs\fixed\results.txt` (allora 39 righe, schema 2; oggi 64 righe, schema 7: le righe 1–39 hanno le stesse chiavi e gli stessi valori).
 
 Verificato in quell'occasione:
 - **Variante A** del comando (`run_fs.bat` eseguito direttamente): funziona, `cmd /c` non serve. Codice di
@@ -128,7 +128,7 @@ Nell'**Execution tab → Analysis Execution Options → Advanced Options** dell'
   you expect some designs to exceed the Max execution time but want those designs to be marked as
   errors."* Il manuale non dice se il comando viene chiuso (**DA VERIFICARE**), né come viene trattato il
   controllo del codice di uscita (passo 6a) se il comando non è ancora terminato (**DA VERIFICARE**). La
-  condizione "File contains" `schema_version = 6` (passo 6b) lo marcherebbe di sicuro come errore: all'avvio
+  condizione "File contains" `schema_version = 7` (passo 6b) lo marcherebbe di sicuro come errore: all'avvio
   il driver cancella il vecchio `results.txt`. **Dopo un caso del genere controllare Gestione attività** e
   chiudere a mano un eventuale `FlightStream.exe`, altrimenti i design successivi danno `status = 6`.
 - **Default decimal delimiter = Period** (opzioni nella GUI: "From portal", "Period", "Comma"; il default
@@ -162,11 +162,11 @@ capire dal manuale, PDF p. 126) ma nel dialogo delle condizioni:
 
 **6b. Condizione su `results.txt` (facoltativa, non ancora configurata).** Nello Study_2 `successCondition:
 NONE`: oggi c'è solo il controllo del codice di uscita, che basta per gli errori del driver. La condizione
-"File contains" `schema_version = 6` serve a scartare i design se un giorno cambia lo schema di
+"File contains" `schema_version = 7` serve a scartare i design se un giorno cambia lo schema di
 `results.txt` (Managing conditions, PDF p. 154–161):
 1. Nel gruppo **Tools** del ribbon **Process** clicca **Manage Conditions**.
 2. **Add Condition** → tipo **File contains** (*"Searches a file for text. If the text is found, the condition
-   is marked as true."*). File: `results.txt`; testo: `schema_version = 6`. *(Come si sceglie il file e se il
+   is marked as true."*). File: `results.txt`; testo: `schema_version = 7`. *(Come si sceglie il file e se il
    campo accetta gli spazi: DA VERIFICARE; in alternativa cercare `schema_version`.)*
 3. **Close**, poi nello stesso dialogo **Conditions** (Condition Event **Success**) seleziona la condizione;
    **Evaluate in** = **Analysis folder**, Compute resource **Local**.
@@ -174,7 +174,7 @@ NONE`: oggi c'è solo il controllo del codice di uscita, che basta per gli error
 
 **Alternativa tutta in una condizione** (operatori and/or tra gli elementi, PDF p. 156 e 158: *"The second and
 subsequent items in the list allow you to choose how the item is combined with the previous item:
-logical or, and."*): una sola condizione con due elementi, **File contains** `schema_version = 6` in
+logical or, and."*): una sola condizione con due elementi, **File contains** `schema_version = 7` in
 `results.txt` **and** **File contains** `success=1` in `run_info.txt` (ultima riga del driver,
 `FS_DRIVER_RESULT status=<n> success=<0|1>`). `run_info.txt` non è un file di input/output dell'Analysis:
 il manuale dice che per una success condition *"the file may be included in the analysis using a condition.
@@ -207,7 +207,7 @@ Tagga il numero a destra di `=` sulle righe seguenti (le prime tre righe sono co
 ### Risposte (output, delimitatore `=`)
 
 Tagga il numero a destra di `=` di ogni riga di `heeds_inputs\<modalità>\results.txt`. **L'ordine delle 64 righe è
-fisso** e uguale per tutte le modalità (`RESULTS_SCHEMA`, `schema_version = 6`; le righe 1–39 sono quelle dello schema 2 e
+fisso** e uguale per tutte le modalità (`RESULTS_SCHEMA`, `schema_version = 7`; le righe 1–39 sono quelle dello schema 2 e
 le 40–45 quelle dello schema 3, le 46–49 dello schema 4, le 50–54 dello schema 5, quindi il tagging già fatto, righe 2, 5, 6, 10, 12, resta valido); le chiavi non pertinenti
 alla modalità valgono `-999`; le chiavi future si aggiungeranno solo in fondo al file.
 
@@ -226,7 +226,7 @@ alla modalità valgono `-999`; le chiavi future si aggiungeranno solo in fondo a
 | 11 | `CMz` | carichi | 0 | 0 | risposta (confrontabile solo a Sref costante) |
 | 12 | `L_over_D` | carichi | 28.5495 | 28.5495 | **obiettivo** consigliato |
 | 13 | `L_N` | carichi | 257.444 | 257.445 | obiettivo/vincolo (N) |
-| 14 | `D_N` | carichi | 9.01747 | 9.01748 | obiettivo/vincolo (N) |
+| 14 | `D_N` | carichi | 9.0101 | 9.01011 | obiettivo/vincolo (N). **Dallo schema 7 = Di_N + D0_N** (riga 56 + riga 57), non più CD·q·Sref: non quantizzato |
 | 15 | `Sref_m2` | riferimenti | 1.82208 | 1.82208 | controllo |
 | 16 | `Lref_m` | riferimenti | 0.345091 | 0.345091 | controllo |
 | 17 | `Re_ref` | riferimenti | 474985 | 474985 | controllo |
@@ -269,7 +269,7 @@ alla modalità valgono `-999`; le chiavi future si aggiungeranno solo in fondo a
 | 54 | `S_half` | planform | -999 | -999 | controllo: area della semiala [m²] (solo ccs_planform; baseline 0.911041) |
 | 55 | `alpha_trim` | missione | -999 | -999 | **risultato del trim**: α* [deg] con L_N = W (solo con `trim.enabled`; l'eco `aoa`, riga 35, resta α1) |
 | 56 | `Di_N` | missione | 3.4486 | 3.44861 | resistenza indotta [N] = CDi (log, 5 cifre) · q · Sref; **obiettivo** del benchmark 7C |
-| 57 | `D0_N` | missione | 5.58012 | 5.58013 | resistenza d'attrito [N] = CDo · q · Sref (incertezza di mesh: GCI 2,9 % a 4°) |
+| 57 | `D0_N` | missione | 5.5615 | 5.5615 | resistenza d'attrito [N] **dal foglio dei carichi in NEWTONS** (schema 7; prima CDo·q·Sref, a gradini di 0,045 N); incertezza di mesh GCI 2,9 % a 4° |
 | 58 | `M_root_Nm` | missione | 156.425 | 156.425 | momento flettente alla radice della semiala [N m] = ∫ L'(y) y dy (carichi di sezione in newton) |
 | 59 | `CLmax_wing` | missione | -999 | -999 | CL dell'ala a cui la sezione critica arriva a clmax (solo con trim). **clmax SEGNAPOSTO 1,2** finché manca XFOIL |
 | 60 | `CL_req` | missione | -999 | -999 | CL richiesto a V_min = W / (½ ρ V_min² Sref) (vincolo: CL_req ≤ CLmax_wing) |
@@ -287,6 +287,8 @@ Uso consigliato:
 - **Controllo:** righe 1, 15–18, 35–39 (eco dei valori effettivamente usati).
 - **Righe 40–45 (schema 3, v2.5.0):** accoppiamento viscoso e separazione, esplorativi: controllo e
   diagnostica, non obiettivi né vincoli. Le righe 1–39 sono identiche allo schema 2.
+- **Schema 7 (v2.8.1):** nessuna riga nuova; cambiano valore e definizione di `D_N` (riga 14 = Di_N + D0_N) e `D0_N`
+  (riga 57, dal foglio dei carichi esportato anche in NEWTONS). `L_over_D` (riga 12) resta CL/CD dai coefficienti.
 - **Righe 55–64 (schema 6, v2.7.0):** trim e missione. Con `trim.enabled` (case_semiala_planform.json) ogni design fa
   **tre run** di FlightStream (α1, α1 + 2°, α*): timeout di HEEDS ≥ 3 × quello di un run; tutte le righe dei carichi
   vengono dal run ad α*. `CLmax_wing` ed `eta_stall` usano clmax **segnaposto** (1,2 costante): non usarli come vincolo
@@ -434,7 +436,7 @@ Serve a provare la Success condition senza lanciare FlightStream (≈ 1 s a desi
 2. Lancia "Evaluate baseline design" (o un design qualsiasi).
 3. Esito atteso dal driver, nella cartella del design (`HEEDS_0\Design<N>\Analysis_1`):
    - `fs_script.txt` scritto, FlightStream **non** lanciato (niente `fs_stdout.txt`, `loads.txt`, `surface.vtk`);
-   - `results.txt` completo: `schema_version = 6`, `status = 1`, coefficienti `-999`, eco di `aoa`;
+   - `results.txt` completo: `schema_version = 7`, `status = 1`, coefficienti `-999`, eco di `aoa`;
    - `run_info.txt`: `status = 1 (errore generico/setup)`, `- dry-run: FlightStream non lanciato`, ultima
      riga `FS_DRIVER_RESULT status=1 success=0`;
    - codice di uscita **1** (in `<studio>\.aux\Process_execution_actions.log`, riga `JC-Dn:end`).
@@ -443,7 +445,7 @@ Serve a provare la Success condition senza lanciare FlightStream (≈ 1 s a desi
    (0). This design analysis will be marked as an error."*; con Error Designs = Rename la cartella diventa
    `Design<N>-ERROR`.
    **Senza** il controllo del codice di uscita HEEDS accetterebbe il design: `results.txt` è leggibile e
-   contiene anche `schema_version = 6`, quindi la sola condizione "File contains" **non** basta a scartarlo
+   contiene anche `schema_version = 7`, quindi la sola condizione "File contains" **non** basta a scartarlo
    (CL = -999 entrerebbe nello studio). Per questo servono entrambi i controlli del passo 6.
 5. **Togli `--dry-run`** dalle Command options prima di lanciare lo studio vero.
 
@@ -485,10 +487,10 @@ Dal manuale (§9 "Run the study using the commands", PDF p. 1084–1085; opzioni
 - [ ] Execution tab → Advanced Options: Max execution time = 1200 s, Default decimal delimiter = punto.
 - [ ] Nella cartella del design ci sono `params.txt` (copiato da HEEDS con questo nome), `fs_script.txt`,
       `results.txt`, `run_info.txt`.
-- [ ] `results.txt` comincia con `schema_version = 6`; HEEDS legge gli stessi valori del file e di
+- [ ] `results.txt` comincia con `schema_version = 7`; HEEDS legge gli stessi valori del file e di
       `heeds_inputs\fixed\results.txt`.
 - [x] Controllo del codice di uscita (passo 6a) configurato e provato con un design in errore.
-- [ ] Facoltativo: condizione "File contains" `schema_version = 6` (passo 6b).
+- [ ] Facoltativo: condizione "File contains" `schema_version = 7` (passo 6b).
 - [ ] Prova di errore: una chiave sbagliata in `params.txt` (es. `aoa_x = 4`) → `status = 1`, codice di
       uscita 1, design rinominato `Design<X>-ERROR`.
 - [ ] Test dello Stop (passo 10): nessun `FlightStream.exe` orfano, oppure chiuso a mano.

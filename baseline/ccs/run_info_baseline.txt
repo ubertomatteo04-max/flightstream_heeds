@@ -1,7 +1,8 @@
 status = 0 (ok)
-fs_driver v2.7.0, 2026-10-06 10:09:28
-- processi del run: FlightStream.exe (PID 23692)
+fs_driver v2.8.1, 2026-10-06 15:53:37
+- processi del run: FlightStream.exe (PID 16368)
 - densita' per q, L, D: 1.225 kg/m^3 (JSON fluid)
 - carico in apertura in newton: integrale di L' dy = 128.04 N (L_N/2 = 128.72 N, scarto -0.53 %); M_root = 156.43 N m
 - carico in apertura: 40 sezioni, (2/Sref) * integrale di cl c dy = 0.57367 (CL dei carichi 0.5767, scarto -0.53 %)
+- D0_N dal foglio in newton 5.56150 N; CDo q Sref 5.58013 N; differenza -0.01863 N (quantizzazione di CDo +/- 0.02232 N)
 FS_DRIVER_RESULT status=0 success=1

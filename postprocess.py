@@ -583,3 +583,31 @@ def critical_section(tab1, tab2, CL1, CL2, clmax_of_chord):
     if best is None:
         raise ValueError("sezione critica: nessuna sezione con cl crescente fra alfa1 e alfa2")
     return best
+
+
+# --------------------------------------------------------------------------------------
+# 7. Foglio dei carichi in newton (v2.8.1, 7C.1)
+# --------------------------------------------------------------------------------------
+def parse_loads_newtons(path):
+    """Foglio dei carichi esportato dopo SET_LOADS_AND_MOMENTS_UNITS NEWTONS (manuale 26.1 p. 349): stessa tabella del
+    foglio in coefficienti ('Surface, ...' e riga 'Total'), con forze in N e momenti in N m. Le colonne si leggono per
+    POSIZIONE nell'ordine del foglio in coefficienti (Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz -> stesse chiavi), cosi'
+    non dipende dalle etichette; la riga 'Force Units' deve dire Newtons."""
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        lines = f.read().splitlines()
+    units = next((ln.split(":", 1)[1].strip() for ln in lines if ln.strip().lower().startswith("force units")), "")
+    if "newton" not in units.lower():
+        raise ValueError(f"{path}: 'Force Units' = {units!r}, attese Newtons")
+    header = None
+    for ln in lines:
+        s = ln.strip()
+        if s.lower().startswith("surface,"):
+            header = [t.strip() for t in s.split(",")[1:] if t.strip()]
+        elif header and s.lower().startswith("total"):
+            vals = [float(v) for v in re.findall(_NUM, s)]
+            if len(vals) != len(COEFFS) or len(header) != len(COEFFS):
+                raise ValueError(f"{path}: {len(header)} colonne e {len(vals)} valori, attesi {len(COEFFS)}")
+            out = dict(zip(COEFFS, vals))
+            out["_labels"], out["_units"] = header, units
+            return out
+    raise ValueError(f"formato non riconosciuto in {path} (manca 'Surface,' o la riga 'Total')")

@@ -64,7 +64,7 @@ da aggiungere in HEEDS).
 - Due modalità: `fixed` (template `.fsm`, variabili `aoa`, `velocity`, `sideslip`) e `ccs_wing` (semiala da
   CCS, in più `chord_scale`; `sideslip` = 0). Con `chord_scale` Sref cambia: obiettivi `L_over_D` o
   `L_N`/`D_N`, non CL.
-- `results.txt` ha sempre 64 righe nello stesso ordine (`-999` = non disponibile, schema 6); chiavi nuove solo in
+- `results.txt` ha sempre 64 righe nello stesso ordine (`-999` = non disponibile, schema 7); chiavi nuove solo in
   fondo. Righe 46–49: carico lungo l'apertura (`cl_sec_*`, `spanload.csv` nella cartella del design).
 - Incertezze (v2.6.0, `REPORT_ALA.md`): mesh ≈ 1 % sui carichi inviscidi, CDo GCI 2,9 % a 4° e 13,8 % a 12°;
   bordo d'uscita raccordato (default) contro tozzo (`te_type: "blunt"`, opzione): ≈ 4 % su CL, ≈ 6 % su CMy.
@@ -299,10 +299,11 @@ Il significato è in `HEEDS_SETUP.md`. **HEEDS legge le risposte per posizione.*
   riga di `results.txt`): così HEEDS, se controlla `schema_version = 5`, rifiuta un results.txt con
   un ordine diverso da quello taggato invece di leggere righe sbagliate;
 - `tests/test_schema.py` controlla che `fixed` e `ccs_wing` scrivano lo stesso elenco, che le
-  posizioni dello schema 6 non cambino (e le righe taggate 2, 5, 6, 10, 12) e che la prima riga sia `schema_version = 5`
+  posizioni dello schema 7 non cambino (e le righe taggate 2, 5, 6, 10, 12) e che la prima riga sia `schema_version = 7`
   (`python -m unittest discover -s tests -v`).
 
-Lo schema 6 (v2.7.0) aggiunge in coda le 10 righe "missione" (55–64); lo schema 5 le 5 righe "planform" (50–54); lo schema 4 (v2.6.0) le 4 righe della sezione "apertura" (46–49, carico lungo l'apertura,
+Lo schema 7 (v2.8.1) non aggiunge righe ma cambia `D_N` (= Di_N + D0_N) e `D0_N` (dal foglio dei carichi in NEWTONS,
+`loads_N.txt`, esportato dopo `SET_LOADS_AND_MOMENTS_UNITS NEWTONS`, manuale p. 349). Lo schema 6 (v2.7.0) aggiunge in coda le 10 righe "missione" (55–64); lo schema 5 le 5 righe "planform" (50–54); lo schema 4 (v2.6.0) le 4 righe della sezione "apertura" (46–49, carico lungo l'apertura,
 vedi sotto); lo schema 3 (v2.5.0) le 6 righe della sezione "viscoso" (40–45). Le righe 1–39 sono quelle
 dello schema 2, quindi il tagging HEEDS esistente resta valido. Lo schema 2 (v2.2.1) aveva riordinato le
 chiavi rispetto alla v2.1 (riferimenti dopo i carichi, eco

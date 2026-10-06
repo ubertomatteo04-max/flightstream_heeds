@@ -1,4 +1,4 @@
-# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.7.0 in corso: Parte 7, ala parametrica per SHERPA – 7A, 7B, 7C fatte)
+# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.8.1: Parte 8 in corso – 7C.1 fatta, schema 7)
 
 **Lavoro sull'ala chiuso (v2.6.0).** Conclusioni per il team: `REPORT_ALA.md`. Configurazione di riferimento D
 (disaccoppiata, separazione `none`); C e CS esplorative (`configs/esplorativi/`); modello di separazione abbandonato
@@ -789,6 +789,23 @@ XFOIL non usato in questa fase (`reference\xfoil\` resta com'è).
   `xfoil/clmax.md`; polari in `xfoil/polars/`. **Non attivo:** `mission.clmax_file` punta ancora al segnaposto
   `profiles/clmax_vs_Re.csv` (invariato); copia del segnaposto in `profiles/clmax_vs_Re.csv.bak`. Confronto con la sezione
   a metà apertura di FlightStream rimandato.
+
+### 3.16 Parte 8 (v2.8.1, 2026-10-06)
+
+**7C.1 – D0 non quantizzato (schema 7)**
+- Script: dopo l'export dei carichi in coefficienti, `SET_LOADS_AND_MOMENTS_UNITS NEWTONS` (manuale 26.1 p. 349) ed
+  `EXPORT_SOLVER_ANALYSIS_SPREADSHEET` su `loads_N.txt`. Formato reale: stessa tabella con etichette
+  `Fx, Fy, Fz, L, Di, Do, Mx, My, Mz`, "Force Units: Newtons", 4 decimali in N; letto per posizione
+  (`postprocess.parse_loads_newtons`, test sul file vero `tests/fixtures/loads_N_planform_trim.txt`).
+- `D0_N` (riga 57) = colonna Do del foglio in N; `Di_N` resta dal log; **`D_N` (riga 14) = Di_N + D0_N esattamente**.
+  Schema 7: nessuna riga nuova, cambiano valore e definizione di D_N e D0_N. `L_over_D` resta dai coefficienti.
+- Controllo D0_N(N) − CDo·q·Sref (in `run_info.txt`): baseline planform +0,020 N, fixed/ccs −0,019 N, taper 0,30–0,50 da
+  −0,015 a +0,008 N: sempre entro la quantizzazione di CDo (±0,022 N).
+- Baseline rigenerate: cambiano solo le righe 1, 14, 57 (fixed D_N 9,01747 → 9,0101; planform 6,51759 → 6,55887).
+  `heeds_inputs/planform_S/results.txt` = run reale schema 7 a taper 1,0 (righe 2–64 = planform).
+- Taper 0,30/0,35/0,40/0,45/0,50 (`diagnostica/planform/check_7c1.md`): tutti status 0, 52–56 s per design;
+  **D_N liscio: residuo massimo del fit quadratico 0,053 %** (Di_N 0,035 %, D0_N 0,070 %). Il D_N vecchio era costante
+  (6,4729 N) su tutto l'intervallo. Il minimo di D_N non coincide con quello di Di_N: D0_N cresce con il taper.
 
 ## 4. Metriche di separazione: implementate e ancora proposte
 

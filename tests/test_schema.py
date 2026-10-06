@@ -71,7 +71,7 @@ class TestResultsSchema(unittest.TestCase):
         self.assertEqual(fs_driver.result_keys(), frozen)
 
     def test_schema_version(self):
-        self.assertEqual(fs_driver.SCHEMA_VERSION, 6)
+        self.assertEqual(fs_driver.SCHEMA_VERSION, 7)
         config, params = CASES["fixed"]
         with tempfile.TemporaryDirectory() as d:
             with open(os.path.join(d, "params.txt"), "w", encoding="utf-8") as f:
@@ -81,7 +81,7 @@ class TestResultsSchema(unittest.TestCase):
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             with open(os.path.join(d, "results.txt"), encoding="utf-8") as f:
                 first = f.readline().strip()
-        self.assertEqual(first, "schema_version = 6")       # testo cercato da "File contains" in HEEDS
+        self.assertEqual(first, "schema_version = 7")       # testo cercato da "File contains" in HEEDS
 
 
 if __name__ == "__main__":
