@@ -1,4 +1,4 @@
-# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.8.1: Parte 8 in corso – 7C.1 e 7E fatte, 7E in attesa di decisione)
+# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.8.1: Parte 8 in corso – 7C.1, 7E, 7F fatte)
 
 **Lavoro sull'ala chiuso (v2.6.0).** Conclusioni per il team: `REPORT_ALA.md`. Configurazione di riferimento D
 (disaccoppiata, separazione `none`); C e CS esplorative (`configs/esplorativi/`); modello di separazione abbandonato
@@ -819,7 +819,18 @@ XFOIL non usato in questa fase (`reference\xfoil\` resta com'è).
   stabile** (D0_N della rettangolare dipende dalla mesh in corda).
 - **Nessuna mesh provata ha GCI < 1 % su D_N** (corda 3,1 %, apertura 1,6 %). Proposta: mesh attuale U120 × V64 con
   incertezza di D_N dichiarata (≈ 3 %, su D0_N); alternative U180 × V64 (2× tempo, non basta) o obiettivo Di_N.
-  **In attesa di decisione dell'utente.**
+  **Decisione dell'utente:** mesh U120 × V64 per 7F, 7G e SHERPA; obiettivo min D_N (Di_N, D0_N risposte di controllo);
+  differenze di D_N sotto il 3 % fra design non significative.
+
+**7F – clmax di XFOIL attivo** (`diagnostica/planform/riepilogo_7f.md`, `riepilogo_7f.py`)
+- `case_semiala_planform.json`: `mission.clmax_file = xfoil/clmax_vs_Re.csv` (Ncrit 9), `clmax_placeholder = false`;
+  il segnaposto resta in `profiles/clmax_vs_Re.csv` (usato dal JSON del benchmark) e `.bak`. Schema invariato (il driver
+  e la definizione di CLmax_wing non cambiano; cambia solo il dato di ingresso).
+- Baseline planform rigenerata: cambia solo la riga 59, CLmax_wing 1,0858 → **1,2193**; CL_req 0,9156, margine +33 %.
+- 8 vertici della 7B (mesh attuale, trim): tutti status 0, 58–76 s. **Non ammissibili (margine < 0):** c_root 0,8 c0
+  con taper 0,4 (−25 %, −24 %) e con taper 1 e twist −5° (−7 %). η_stall > 0,6 nei due design con taper 0,4 e twist +1°.
+- Rettangolare non svergolata (b_half 2,64): margine −6,2 / +1,3 / +8,6 / +16,0 % a c_root 0,24 / 0,26 / 0,28 / 0,30 m;
+  **corda minima ≈ 0,257 m, Sref minima ≈ 1,355 m²** (−25,6 % rispetto alla baseline, AR 20,6).
 
 ## 4. Metriche di separazione: implementate e ancora proposte
 

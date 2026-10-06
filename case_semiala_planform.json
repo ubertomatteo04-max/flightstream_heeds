@@ -138,11 +138,11 @@
     "V_min": 12.0,
     "rho": 1.225,
     "b_half_max": 3.04,
-    "clmax_file": "profiles/clmax_vs_Re.csv",
-    "clmax_placeholder": true,
+    "clmax_file": "xfoil/clmax_vs_Re.csv",
+    "clmax_placeholder": false,
     "_nota_W_N": "massa totale di Vespa, dato del team (15 kg)",
     "_nota_V_min": "ipotesi: velocita' minima in volo traslato, da confermare",
     "_nota_b_half_max": "+15 % su 2.64 m",
-    "_nota_clmax": "SEGNAPOSTO: clmax = 1.2 costante finche' manca XFOIL; CLmax_wing ed eta_stall non sono stime fisiche"
+    "_nota_clmax": "clmax(Re) di XFOIL 6.99, Ncrit 9 (Parte 7D, xfoil/clmax.md), Re = V_min c/nu; fuori da 1e5-8e5 costante agli estremi. Il segnaposto 1,2 costante resta in profiles/clmax_vs_Re.csv(.bak) (usato dal benchmark)"
   }
 }
