@@ -1,12 +1,19 @@
 # Benchmark SHERPA sulla rastremazione – scheda per la GUI di HEEDS
 
-Dati letti dai file reali il 2026-10-06 (`heeds_inputs\planform\`, `configs\esplorativi\case_planform_taper_S.json`,
+**File da selezionare in HEEDS (Files tab):**
+
+| ruolo | percorso completo |
+|---|---|
+| input (template, tag della variabile) | `C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline\heeds_inputs\planform_S\params.txt` |
+| output (template, tag delle risposte) | `C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline\heeds_inputs\planform_S\results.txt` |
+| JSON (nel comando) | `C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline\configs\esplorativi\case_planform_taper_S.json` |
+
+Dati letti dai file reali il 2026-10-06 (`heeds_inputs\planform_S\`, `configs\esplorativi\case_planform_taper_S.json`,
 dry-run del driver senza FlightStream). Driver v2.7.0, schema 6. Procedura generale: `HEEDS_SETUP.md`.
 
-> **Prima di tutto (bloccante):** `heeds_inputs\planform\params.txt` è quello della baseline con `size_by: "c_root"`
-> (riga 7 = `c_root`). Con il JSON del benchmark (`size_by: "S_half"`) dà **status 1** ("chiavi non ammesse:
-> ['c_root']", verificato). Per il benchmark serve lo stesso file con la riga 7 = `S_half = 0.911041` (§2): con questa
-> modifica il dry-run è corretto (Sref 1,82208, c_root derivato 0,345091). Il file non è ancora nel repo.
+`heeds_inputs\planform_S\` è la cartella del benchmark (`size_by: "S_half"`). **Non usare** `heeds_inputs\planform\`:
+quella è la baseline con `size_by: "c_root"` (riga 7 = `c_root`) e con questo JSON dà status 1 ("chiavi non ammesse:
+['c_root']"). `results.txt` di planform_S = risultato reale del design taper 1,00 del DOE 7C (stesso JSON, 2026-10-06).
 
 ## 1. Cartella, analisi, comando
 
@@ -23,12 +30,12 @@ dry-run del driver senza FlightStream). Driver v2.7.0, schema 6. Procedura gener
   α1 = aoa del params, α2 = α1 + 2°), `heeds.success_statuses = [0]`, `run.timeout_s = 240` per run, clmax **segnaposto**
   (`profiles/clmax_vs_Re.csv`, 1,2 costante; il clmax di XFOIL non è attivo, come deciso).
 - Nota: `configs\esplorativi\README.md` dice "non usare in HEEDS"; questo JSON è l'eccezione voluta per il benchmark.
-- **File:** input `params.txt` (template = file del §2), output `results.txt` (template =
-  `heeds_inputs\planform\results.txt`: chiavi e posizioni dello schema 6 uguali per tutti i casi, cambiano solo i valori).
+- **File:** input `heeds_inputs\planform_S\params.txt` (§2), output `heeds_inputs\planform_S\results.txt` (§3); percorsi
+  completi nella tabella in testa.
 
-## 2. params.txt di base (righe numerate, come le vede HEEDS)
+## 2. params.txt di base: `heeds_inputs\planform_S\params.txt` (righe numerate, come le vede HEEDS)
 
-Righe 1–6 e 8–10 identiche a `heeds_inputs\planform\params.txt`; **riga 7 cambiata** (`c_root` → `S_half`):
+Contenuto reale del file (righe 1–4 commenti ereditati dalla baseline planform; riga 7 = `S_half`):
 
 | riga | contenuto | ruolo nel benchmark |
 |---|---|---|
@@ -46,7 +53,7 @@ Righe 1–6 e 8–10 identiche a `heeds_inputs\planform\params.txt`; **riga 7 ca
 Fissi anche nel JSON: `size_by: "S_half"`, trim attivo. Le righe fisse si possono lasciare non taggate (il driver le legge
 dal file); se si taggano, vanno come costanti con questi valori.
 
-## 3. results.txt (schema 6, 64 righe) – risposte del benchmark
+## 3. results.txt: `heeds_inputs\planform_S\results.txt` (schema 6, 64 righe) – risposte del benchmark
 
 | risposta | riga | chiave | baseline (taper 1) | uso |
 |---|---|---|---|---|
@@ -59,7 +66,7 @@ dal file); se si taggano, vanno come costanti con questi valori.
 | CLmax_wing | **59** | `CLmax_wing` | 1.08579 | monitor, clmax **segnaposto** |
 | eta_stall | **61** | `eta_stall` | 0.0588636 | monitor, clmax **segnaposto** |
 
-Valori di baseline da `heeds_inputs\planform\results.txt` (baseline `size_by c_root`, stessa geometria del taper 1).
+Valori di baseline da `heeds_inputs\planform_S\results.txt` (run reale, taper 1,00, size_by S_half, status 0).
 
 <details><summary>Tabella completa riga → chiave (64 righe)</summary>
 
@@ -117,12 +124,12 @@ Tagging: delimitatore `=`, valore in colonna 2 (come nello Study_2). Riga 35 (`a
 
 - [ ] Nessun `FlightStream.exe` attivo (Gestione attività; GUI di FlightStream chiusa): altrimenti status 6.
 - [ ] Login Altair One valido con lo stesso utente Windows di HEEDS (aprire FlightStream una volta e chiuderlo).
-- [ ] `preflight.bat` → `PREFLIGHT OK` (controlla driver, interpreti, i tre JSON di produzione e gli heeds_inputs).
-      Il preflight sul JSON del benchmark (`python preflight.py --config configs\esplorativi\case_planform_taper_S.json`)
-      oggi dà 1 errore per il `c_root` di `heeds_inputs\planform\params.txt` (vedi riquadro in alto): sparisce con il
-      params.txt del §2.
-- [ ] Dry-run del comando del §1 con il params.txt del §2 in una cartella di prova (aggiungere `--dry-run`): atteso
-      `FS_DRIVER_RESULT status=1 success=0` con "trim: dry-run" in `run_info.txt` (status 1 è normale in dry-run).
+- [ ] `preflight.bat` → `PREFLIGHT OK` (driver, interpreti, i tre JSON di produzione e i loro heeds_inputs).
+- [ ] Preflight sul JSON del benchmark → `PREFLIGHT OK` (usa `heeds_inputs\planform_S\`; verificato il 2026-10-06):
+      `python preflight.py --config configs\esplorativi\case_planform_taper_S.json`
+- [ ] (facoltativo) Dry-run del comando del §1 con `heeds_inputs\planform_S\params.txt` in una cartella di prova
+      (aggiungere `--dry-run`): atteso `FS_DRIVER_RESULT status=1 success=0` con "trim: dry-run" in `run_info.txt`
+      (status 1 è normale in dry-run; verificato il 2026-10-06: Sref 1,82208, c_root derivato 0,345091).
 - [ ] Cartella del progetto HEEDS nuova o pulita (nessun `HEEDS_0\Design*` di prove precedenti); nessuna cartella aperta
       in Esplora risorse dentro le cartelle dei design (Windows può bloccare la pulizia).
 - [ ] Max execution time = 3000 s, decimal delimiter = Period, Success condition = return value 0.
