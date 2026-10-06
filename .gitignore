@@ -27,3 +27,4 @@ diagnostica/*/runs_log*.txt
 spanload.txt
 # CSV di riepilogo della diagnostica (piccoli): nel repo
 !diagnostica/**/*.csv
+spanload_N.txt

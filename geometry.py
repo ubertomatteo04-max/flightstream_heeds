@@ -213,7 +213,7 @@ def _ccs_wing(params, cfg, workdir):
     factor = 2.0 if cfg["reference"]["symmetry_loads"] else 1.0
     return {"lines": lines, "init_lines": initialize_solver_lines(sol), "explicit_physics": True,
             "Sref": factor * ref["S_half"], "Lref": ref["MAC"],
-            "span": {"y_root": ref["y_root"], "b_half": ref["b_half"]}}
+            "span": {"y_root": ref["y_root"], "b_half": ref["b_half"], "c_tip": ref["chord_tip"]}}
 
 
 def ccs_import_lines(dst, b_half, tol):
@@ -324,7 +324,7 @@ def _ccs_planform(params, cfg, workdir):
         lines += [["AUTO_DETECT_BASE_REGIONS"], ["SET_BASE_REGION_TRAILING_EDGES -1"]]
     return {"lines": lines, "init_lines": initialize_solver_lines(sol), "explicit_physics": True,
             "Sref": factor * geo["S_half"], "Lref": geo["MAC"],
-            "span": {"y_root": 0.0, "b_half": b_half},
+            "span": {"y_root": 0.0, "b_half": b_half, "c_tip": geo["c_tip"]},
             "echo": {"c_root": c_root, "S_half": geo["S_half"], "taper": taper, "twist_tip_deg": twist,
                      "b_half": b_half}}
 

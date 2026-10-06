@@ -22,6 +22,20 @@ RUNS = os.path.abspath(os.path.join(REPO, "..", "baseline_runs"))
 CONFIG = {"fixed": "case_semiala_fixed.json", "ccs": "case_semiala_ccs.json", "planform": "case_semiala_planform.json"}
 
 
+def empty_tree(path):
+    """Cancella tutti i file sotto path e le sottocartelle che si lasciano cancellare. Su Windows rmdir puo'
+    fallire (Accesso negato) se un altro processo (Esplora risorse, indicizzazione) tiene aperta una cartella:
+    in quel caso la cartella resta, vuota, e viene riusata."""
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            os.remove(os.path.join(root, name))
+        for name in dirs:
+            try:
+                os.rmdir(os.path.join(root, name))
+            except OSError:
+                pass
+
+
 def lines(path):
     with open(path, "r", encoding="utf-8") as f:
         return f.read().splitlines()
@@ -38,9 +52,7 @@ def main():
         # si svuota la cartella invece di cancellarla: su Windows rmdir puo' fallire (Accesso negato) se un
         # altro processo (Esplora risorse, indicizzazione) tiene aperta la cartella
         os.makedirs(wd, exist_ok=True)
-        for name in os.listdir(wd):
-            p = os.path.join(wd, name)
-            shutil.rmtree(p) if os.path.isdir(p) else os.remove(p)
+        empty_tree(wd)
         shutil.copy(os.path.join(HERE, m, "params_baseline.txt"), os.path.join(wd, "params.txt"))
         cmd = [os.path.join(REPO, "run_fs.bat"), "--config", os.path.join(REPO, CONFIG[m])]
         rc = subprocess.run(cmd, cwd=wd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT).returncode

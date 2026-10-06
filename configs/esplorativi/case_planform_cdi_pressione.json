@@ -1,9 +1,9 @@
 {
-  "_nota": "Semiala parametrica (mode ccs_planform, v2.7.0): profilo di radice di Vespa, pianta da c_root (o S_half), taper, twist_tip_deg, b_half. Valori del blocco case = baseline (rettangolare, non svergolata). Significato delle chiavi: README.md.",
+  "_nota": "DIAGNOSTICA 7B.1 (non validata): come case_semiala_planform.json ma senza SET_VORTICITY_DRAG_BOUNDARIES (vorticity_drag_boundaries = [] -> DELETE_VORTICITY_DRAG_BOUNDARIES, CDi da pressione). Non usare in HEEDS.",
   "flightstream_exe": "",
   "geometry": {
     "mode": "ccs_planform",
-    "profile": "profiles/vespa_root.dat",
+    "profile": "../../profiles/vespa_root.dat",
     "root_le_m": [
       0.002108707,
       0.0,
@@ -61,9 +61,7 @@
     ],
     "wake_termination_x": "DEFAULT",
     "symmetry": "MIRROR",
-    "vorticity_drag_boundaries": [
-      1
-    ]
+    "vorticity_drag_boundaries": []
   },
   "reference": {
     "sref_m2": null,
@@ -138,7 +136,7 @@
     "V_min": 12.0,
     "rho": 1.225,
     "b_half_max": 3.04,
-    "clmax_file": "profiles/clmax_vs_Re.csv",
+    "clmax_file": "../../profiles/clmax_vs_Re.csv",
     "clmax_placeholder": true,
     "_nota_W_N": "massa totale di Vespa, dato del team (15 kg)",
     "_nota_V_min": "ipotesi: velocita' minima in volo traslato, da confermare",

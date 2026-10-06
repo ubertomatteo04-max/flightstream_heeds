@@ -1,6 +1,11 @@
 status = 0 (ok)
-fs_driver v2.7.0, 2026-10-06 09:56:25
-- processi del run: FlightStream.exe (PID 2132)
+fs_driver v2.7.0, 2026-10-06 10:20:18
+- trim, run 1 (cartella trim_1): alfa 0.0000 deg, L_N 85.0411 N, status 0
+- trim, run 2 (cartella trim_2): alfa 2.0000 deg, L_N 171.3322 N, status 0
+- processi del run: FlightStream.exe (PID 38076)
 - densita' per q, L, D: 1.225 kg/m^3 (JSON fluid)
-- carico in apertura: 40 sezioni, (2/Sref) * integrale di cl c dy = 0.57367 (CL dei carichi 0.5767, scarto -0.53 %)
+- carico in apertura in newton: integrale di L' dy = 73.199 N (L_N/2 = 73.591 N, scarto -0.53 %); M_root = 89.606 N m
+- carico in apertura: 40 sezioni, (2/Sref) * integrale di cl c dy = 0.32797 (CL dei carichi 0.3297, scarto -0.53 %)
+- trim: alfa1 0.0000 deg -> L 85.0411 N; alfa2 2.0000 deg -> L 171.3322 N; alfa* 1.4395 deg -> L 147.1814 N; W 147.15 N, |L-W|/W 0.021 %
+- sezione critica: clmax(Re) SEGNAPOSTO (costante, in attesa di XFOIL): CLmax_wing e eta_stall non sono stime fisiche
 FS_DRIVER_RESULT status=0 success=1

@@ -1,4 +1,4 @@
-# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.7.0 in corso: Parte 7, ala parametrica per SHERPA – 7A fatta)
+# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.7.0 in corso: Parte 7, ala parametrica per SHERPA – 7A e 7B fatte)
 
 **Lavoro sull'ala chiuso (v2.6.0).** Conclusioni per il team: `REPORT_ALA.md`. Configurazione di riferimento D
 (disaccoppiata, separazione `none`); C e CS esplorative (`configs/esplorativi/`); modello di separazione abbandonato
@@ -738,6 +738,28 @@ XFOIL non usato in questa fase (`reference\xfoil\` resta com'è).
   CMy −0,1993, 91 iterazioni, anche residui e CL/CDi a 5 cifre nel log), salvo l'eco di chord_scale (−999).
 - **8 vertici** (c_root 0,8/1,6 × c0, taper 0,4/1,0, twist −5/+1, b_half = b0, α 4°): tutti status 0, 89–93
   iterazioni, 16,8–19,0 s; ∫cl·c = CL entro 0,55 %. Tabella in `diagnostica/planform/vertici.md`.
+
+**7B – trim, carichi sezionali, sezione critica (schema 6)**
+- 7B.1: lo script attiva già `SET_VORTICITY_DRAG_BOUNDARIES 1` / `1` sull'ala (dopo `START_SOLVER`, opzione JSON esistente
+  `solver.vorticity_drag_boundaries`, `[1]` nei JSON; `[]` = `DELETE_VORTICITY_DRAG_BOUNDARIES`). Baseline trimmata:
+  CDi 0,0025 con e senza (pressione); a 0° 0,0009 (vorticità) / 0,0010 (pressione), a 2° 0,0034 / 0,0033. `Di_N` ed
+  `e_span` usano il CDi del log (colonna "CDi (vorticity)", 5 cifre), calcolato durante il solve: non dipendono
+  dall'opzione. JSON della prova: `configs/esplorativi/case_planform_cdi_pressione.json`.
+- Blocchi JSON `trim` (default disattivato; attivo in `case_semiala_planform.json`) e `mission` (W_N 147,15 = 15 kg, dato del
+  team; V_cruise 20; V_min 12, ipotesi da confermare; rho 1,225; b_half_max 3,04; clmax `profiles/clmax_vs_Re.csv`
+  **SEGNAPOSTO 1,2**). Trim: α1 (aoa del caso, default 0) e α1 + 2° in `trim_1`, `trim_2` (VTK cancellati), α* lineare
+  su L_N = W, terzo run ad α* nella cartella del design: tutte le chiavi di carico vengono da lì; `aoa` = α1, `alpha_trim`
+  = α*; status 3 se |α* − α1| > 6° o |L − W|/W > 0,5 %; i tre α e le tre L_N in `run_info.txt`.
+- Carichi sezionali anche in NEWTONS (`spanload_N.txt`): L'(y) = CFz cos α − CFx sin α, ∫L'dy contro L_N/2 in `run_info.txt`,
+  `M_root_Nm` = ∫L' y dy; colonna `Lp_N_m` in `spanload.csv`. Sezione critica: C_L*(η) dai run ad α1 e α2, clmax a
+  Re = V_min c/ν; `CLmax_wing` = minimo, `eta_stall` = posizione. Righe 55–64: `alpha_trim Di_N D0_N M_root_Nm CLmax_wing
+  CL_req eta_stall Re_tip AR e_span` (D_N, Sref_m2, b_half: chiavi esistenti). Baseline fixed/ccs: righe 1–54 invariate salvo
+  la riga 1; righe nuove calcolate anche senza trim (Di_N, D0_N, M_root_Nm, AR, e_span).
+- Pulizia delle cartelle robusta (`empty_tree` in heeds_mock e regen_baseline: Windows nega a volte rmdir).
+- **Risultati** (`diagnostica/planform/riepilogo_7b.md`): baseline trimmata **CL 0,3297, α* 1,440°**, |L−W|/W 0,021 %, D_N
+  6,52 N (Di 1,14, D0 5,40), e_span 0,888, M_root 89,6 N m, 49–54 s per design (3 run). 8 vertici e 2 estremi di apertura
+  (b_half 2,112 e 3,04): tutti status 0, 52–57 s, α* da −0,10° a 5,64°, |L−W|/W ≤ 0,072 %, ∫L'dy = L_N/2 entro 0,54 %.
+  Con il clmax segnaposto CL_req > CLmax_wing nei 4 design con c_root 0,8 c0 (non volerebbero a 12 m/s).
 
 ## 4. Metriche di separazione: implementate e ancora proposte
 

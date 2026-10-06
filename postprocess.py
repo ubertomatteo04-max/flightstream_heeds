@@ -515,9 +515,71 @@ def spanload_metrics(rows, aoa_deg, span, sref, factor):
 
 
 def write_spanload(path, tab):
-    """spanload.csv: una riga per sezione (eta crescente)."""
+    """spanload.csv: una riga per sezione (eta crescente); Lp_N_m = L'(y) dai carichi in NEWTONS, se c'e'."""
     keys = ["eta", "y_m", "chord_m", "cl", "CFx", "CFz", "cm_qc"]
+    if tab and all("Lp_N_m" in t for t in tab):
+        keys.append("Lp_N_m")
     with open(path, "w", encoding="utf-8") as f:
         f.write(",".join(keys) + "\n")
         for t in tab:
             f.write(",".join(f"{t[k]:.6g}" for k in keys) + "\n")
+
+
+# --------------------------------------------------------------------------------------
+# 6. Carichi dimensionali, sezione critica (v2.7.0, Parte 7B)
+# --------------------------------------------------------------------------------------
+def spanload_newtons(rows, aoa_deg, span):
+    """Carichi di sezione in NEWTONS (FlightStream: forze 2D per unita' di lunghezza, N/m; manuale p. 250):
+    L'(y) = CFz cos(a) - CFx sin(a). Restituisce ({y: L'}, integrale di L' dy sulla semiala, M_root = integrale
+    di L' y dy). Trapezi con L' costante tra radice e prima sezione e L' = 0 all'estremita' (come spanload_metrics)."""
+    a = math.radians(aoa_deg)
+    pts = sorted(((span["sign"] * r["offset"] - span["root"]),
+                  r["CFz"] * math.cos(a) - r["CFx"] * math.sin(a)) for r in rows)
+    ys = [0.0] + [p[0] for p in pts] + [span["b_half"]]
+    lp = [pts[0][1]] + [p[1] for p in pts] + [0.0]
+    lift = sum(0.5 * (lp[i] + lp[i + 1]) * (ys[i + 1] - ys[i]) for i in range(len(ys) - 1))
+    mom = sum(0.5 * (lp[i] * ys[i] + lp[i + 1] * ys[i + 1]) * (ys[i + 1] - ys[i]) for i in range(len(ys) - 1))
+    return {round(y, 9): v for y, v in pts}, lift, mom
+
+
+def read_clmax_table(path):
+    """File clmax_vs_Re.csv: righe 'Re,clmax' (le righe che iniziano con # sono commenti). Restituisce la
+    funzione clmax(Re), lineare a tratti, costante fuori dall'intervallo."""
+    pts = []
+    with open(path, "r", encoding="utf-8-sig") as f:
+        for ln in f:
+            s = ln.strip()
+            if not s or s.startswith("#") or s.lower().startswith("re"):
+                continue
+            re_, cl = (float(t) for t in s.split(",")[:2])
+            pts.append((re_, cl))
+    if not pts:
+        raise ValueError(f"nessuna riga Re,clmax in {path}")
+    pts.sort()
+
+    def clmax(re_):
+        if re_ <= pts[0][0]:
+            return pts[0][1]
+        for (r0, c0), (r1, c1) in zip(pts, pts[1:]):
+            if re_ <= r1:
+                return c0 + (c1 - c0) * (re_ - r0) / (r1 - r0)
+        return pts[-1][1]
+    return clmax
+
+
+def critical_section(tab1, tab2, CL1, CL2, clmax_of_chord):
+    """Sezione critica dai due run ad alfa1 e alfa2 (stesse sezioni): per ogni sezione
+    C_L*(eta) = CL1 + (clmax(eta) - cl1(eta)) (CL2 - CL1) / (cl2(eta) - cl1(eta)), cioe' il CL dell'ala a cui quella
+    sezione arriva a clmax con cl lineare in CL. CLmax_wing = minimo, eta_stall = sua posizione.
+    clmax_of_chord(c) = clmax della sezione di corda c (il Re dipende dalla corda). Sezioni con cl2 <= cl1: escluse."""
+    best = None
+    for s1, s2 in zip(tab1, tab2):
+        dcl = s2["cl"] - s1["cl"]
+        if dcl <= 1e-9:
+            continue
+        cls = CL1 + (clmax_of_chord(s1["chord_m"]) - s1["cl"]) * (CL2 - CL1) / dcl
+        if best is None or cls < best[0]:
+            best = (cls, s1["eta"])
+    if best is None:
+        raise ValueError("sezione critica: nessuna sezione con cl crescente fra alfa1 e alfa2")
+    return best

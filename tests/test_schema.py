@@ -42,13 +42,13 @@ class TestResultsSchema(unittest.TestCase):
 
     def test_section_order(self):
         names = [s for s, _ in fs_driver.RESULTS_SCHEMA]
-        self.assertEqual(names, ["stato", "carichi", "riferimenti", "strato_limite", "ingressi", "viscoso", "apertura", "planform"])
+        self.assertEqual(names, ["stato", "carichi", "riferimenti", "strato_limite", "ingressi", "viscoso", "apertura", "planform", "missione"])
         keys = fs_driver.result_keys()
         self.assertEqual(keys[:2], ["schema_version", "status"])
         self.assertEqual(keys[34:39], ["aoa", "velocity", "altitude", "sideslip", "chord_scale"])
 
     def test_schema_positions_frozen(self):
-        """Posizioni dello schema 5 (v2.7.0; righe 1-39 = schema 2, 40-45 = schema 3, 46-49 = schema 4): se questo test fallisce, una chiave e' stata inserita in
+        """Posizioni dello schema 6 (v2.7.0; righe 1-39 = schema 2, 40-45 = schema 3, 46-49 = schema 4, 50-54 = schema 5): se questo test fallisce, una chiave e' stata inserita in
         mezzo o tolta. Per una chiave nuova: aggiungerla in fondo, allungare questo elenco e
         incrementare SCHEMA_VERSION (e il numero atteso in test_schema_version)."""
         frozen = ["schema_version", "status", "converged", "iterations",
@@ -64,11 +64,14 @@ class TestResultsSchema(unittest.TestCase):
                   # schema 4: carico lungo l'apertura, in coda (righe 1-45 invariate)
                   "cl_sec_max", "eta_cl_sec_max", "cl_sec_root", "cl_sec_eta05",
                   # schema 5: pianta di ccs_planform, in coda (righe 1-49 invariate)
-                  "c_root", "taper", "twist_tip_deg", "b_half", "S_half"]
+                  "c_root", "taper", "twist_tip_deg", "b_half", "S_half",
+                  # schema 6: trim e missione, in coda (righe 1-54 invariate)
+                  "alpha_trim", "Di_N", "D0_N", "M_root_Nm", "CLmax_wing", "CL_req", "eta_stall", "Re_tip", "AR",
+                  "e_span"]
         self.assertEqual(fs_driver.result_keys(), frozen)
 
     def test_schema_version(self):
-        self.assertEqual(fs_driver.SCHEMA_VERSION, 5)
+        self.assertEqual(fs_driver.SCHEMA_VERSION, 6)
         config, params = CASES["fixed"]
         with tempfile.TemporaryDirectory() as d:
             with open(os.path.join(d, "params.txt"), "w", encoding="utf-8") as f:
@@ -78,7 +81,7 @@ class TestResultsSchema(unittest.TestCase):
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             with open(os.path.join(d, "results.txt"), encoding="utf-8") as f:
                 first = f.readline().strip()
-        self.assertEqual(first, "schema_version = 5")       # testo cercato da "File contains" in HEEDS
+        self.assertEqual(first, "schema_version = 6")       # testo cercato da "File contains" in HEEDS
 
 
 if __name__ == "__main__":

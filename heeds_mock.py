@@ -65,11 +65,30 @@ def first_reason(design_dir):
     return notes[0] if notes else ""
 
 
+def empty_tree(path):
+    """Cancella tutti i file sotto path e le sottocartelle che si lasciano cancellare. Su Windows rmdir puo'
+    fallire (Accesso negato) se un altro processo (Esplora risorse, indicizzazione) tiene aperta una cartella:
+    in quel caso la cartella resta, vuota, e viene riusata."""
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            os.remove(os.path.join(root, name))
+        for name in dirs:
+            try:
+                os.rmdir(os.path.join(root, name))
+            except OSError:
+                pass
+
+
 def clean_designs(base, pattern):
-    """Cancella le cartelle dei design di una simulazione precedente (solo quelle che rispettano pattern)."""
+    """Cancella le cartelle dei design di una simulazione precedente (solo quelle che rispettano pattern);
+    se Windows nega la rimozione di una cartella, la svuota (empty_tree)."""
     for name in os.listdir(base):
-        if re.fullmatch(pattern, name) and os.path.isdir(os.path.join(base, name)):
-            shutil.rmtree(os.path.join(base, name))
+        p = os.path.join(base, name)
+        if re.fullmatch(pattern, name) and os.path.isdir(p):
+            try:
+                shutil.rmtree(p)
+            except PermissionError:
+                empty_tree(p)
 
 
 def design_dir(i, a):
@@ -96,7 +115,7 @@ def run_design(i, names, values, a, config):
     """Crea la cartella del design, scrive params.txt, lancia il comando con la cartella del design
     come cartella corrente e restituisce la riga per il CSV."""
     d = design_dir(i, a)
-    os.makedirs(d)
+    os.makedirs(d, exist_ok=True)
     with open(os.path.join(d, "params.txt"), "w", encoding="utf-8") as f:
         f.write("# scritto da heeds_mock.py (HEEDS sostituira' i valori a destra dell'uguale)\n")
         for n, v in zip(names, values):

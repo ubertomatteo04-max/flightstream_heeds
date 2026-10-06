@@ -57,14 +57,14 @@ heeds_report.bat --study "...\semiala_Study_2" --check-against-mock mock_runs\su
 ```
 
 **5. HEEDS:** seguire `HEEDS_SETUP.md` (procedura passo-passo del primo Evaluation Only, con la tabella
-delle 54 righe di `results.txt` da taggare e i file `heeds_inputs\<modalità>\params.txt` / `results.txt`
+delle 64 righe di `results.txt` da taggare e i file `heeds_inputs\<modalità>\params.txt` / `results.txt`
 da aggiungere in HEEDS).
 
 **Da sapere in breve**
 - Due modalità: `fixed` (template `.fsm`, variabili `aoa`, `velocity`, `sideslip`) e `ccs_wing` (semiala da
   CCS, in più `chord_scale`; `sideslip` = 0). Con `chord_scale` Sref cambia: obiettivi `L_over_D` o
   `L_N`/`D_N`, non CL.
-- `results.txt` ha sempre 54 righe nello stesso ordine (`-999` = non disponibile, schema 5); chiavi nuove solo in
+- `results.txt` ha sempre 64 righe nello stesso ordine (`-999` = non disponibile, schema 6); chiavi nuove solo in
   fondo. Righe 46–49: carico lungo l'apertura (`cl_sec_*`, `spanload.csv` nella cartella del design).
 - Incertezze (v2.6.0, `REPORT_ALA.md`): mesh ≈ 1 % sui carichi inviscidi, CDo GCI 2,9 % a 4° e 13,8 % a 12°;
   bordo d'uscita raccordato (default) contro tozzo (`te_type: "blunt"`, opzione): ≈ 4 % su CL, ≈ 6 % su CMy.
@@ -287,9 +287,10 @@ nello stesso ordine per **tutte** le modalità; quelle non pertinenti valgono -9
 | viscoso (schema 3, v2.5.0) | `viscous_coupling separation_model iterations_inviscid iterations_viscous converged_viscous sep_marker_frac_up` |
 | apertura (schema 4, v2.6.0) | `cl_sec_max eta_cl_sec_max cl_sec_root cl_sec_eta05` |
 | planform (schema 5, v2.7.0) | `c_root taper twist_tip_deg b_half S_half` (pianta effettiva di `ccs_planform`) |
+| missione (schema 6, v2.7.0) | `alpha_trim Di_N D0_N M_root_Nm CLmax_wing CL_req eta_stall Re_tip AR e_span` |
 
 Il significato è in `HEEDS_SETUP.md`. **HEEDS legge le risposte per posizione.** Regole:
-- una chiave nuova si aggiunge **solo in fondo al file** (in coda all'ultima sezione, oggi "planform"):
+- una chiave nuova si aggiunge **solo in fondo al file** (in coda all'ultima sezione, oggi "missione"):
   aggiungerla in coda a una sezione intermedia sposterebbe tutte le righe successive;
 - mai riordinare né togliere chiavi;
 - una variabile geometrica nuova (modalità nuova) va aggiunta in fondo a `RESULTS_SCHEMA`: se manca, il
@@ -298,14 +299,27 @@ Il significato è in `HEEDS_SETUP.md`. **HEEDS legge le risposte per posizione.*
   riga di `results.txt`): così HEEDS, se controlla `schema_version = 5`, rifiuta un results.txt con
   un ordine diverso da quello taggato invece di leggere righe sbagliate;
 - `tests/test_schema.py` controlla che `fixed` e `ccs_wing` scrivano lo stesso elenco, che le
-  posizioni dello schema 5 non cambino (e le righe taggate 2, 5, 6, 10, 12) e che la prima riga sia `schema_version = 5`
+  posizioni dello schema 6 non cambino (e le righe taggate 2, 5, 6, 10, 12) e che la prima riga sia `schema_version = 5`
   (`python -m unittest discover -s tests -v`).
 
-Lo schema 5 (v2.7.0) aggiunge in coda le 5 righe "planform" (50–54); lo schema 4 (v2.6.0) le 4 righe della sezione "apertura" (46–49, carico lungo l'apertura,
+Lo schema 6 (v2.7.0) aggiunge in coda le 10 righe "missione" (55–64); lo schema 5 le 5 righe "planform" (50–54); lo schema 4 (v2.6.0) le 4 righe della sezione "apertura" (46–49, carico lungo l'apertura,
 vedi sotto); lo schema 3 (v2.5.0) le 6 righe della sezione "viscoso" (40–45). Le righe 1–39 sono quelle
 dello schema 2, quindi il tagging HEEDS esistente resta valido. Lo schema 2 (v2.2.1) aveva riordinato le
 chiavi rispetto alla v2.1 (riferimenti dopo i carichi, eco
 degli ingressi in fondo): andava fatto prima del primo tagging in HEEDS.
+
+### Trim e grandezze di missione (v2.7.0)
+
+Blocchi JSON `trim` (`enabled`, `dalpha_deg` 2, `max_shift_deg` 6, `tol_rel` 0,005) e `mission` (`W_N`, `V_cruise`,
+`V_min`, `rho`, `b_half_max`, `clmax_file`, `clmax_placeholder`). Con `trim.enabled` l'`aoa` del caso è solo α1: run ad
+α1 e α1 + 2° (sottocartelle `trim_1`, `trim_2`, i loro VTK vengono cancellati), α* lineare su L_N = W_N, terzo run ad α*
+nella cartella del design: **tutte** le chiavi di carico vengono da lì; `aoa` = α1, `alpha_trim` = α*. Status 3 se
+|α* − α1| > 6° o se |L − W|/W > 0,5 % dopo il terzo run; i tre α e le tre L_N sono in `run_info.txt`. La velocità del caso
+deve essere `V_cruise`; `b_half` oltre `b_half_max` è un errore di setup. Sempre (anche senza trim): `Di_N`, `D0_N`,
+`AR`, `e_span` (CL e CDi del log, 5 cifre), `M_root_Nm` (carichi di sezione in NEWTONS: L'(y), controllo ∫L'dy = L_N/2
+in `run_info.txt`), `CL_req`, `Re_tip`. Sezione critica (solo con trim): per ogni sezione C_L* = C_L1 + (clmax − cl1)
+(C_L2 − C_L1)/(cl2 − cl1) con clmax(Re) a Re = V_min c/ν da `clmax_file`; `CLmax_wing` = minimo, `eta_stall` = posizione.
+`profiles/clmax_vs_Re.csv` è un **segnaposto** (1,2 costante) dichiarato nel file e nel JSON.
 
 ### Carico lungo l'apertura (v2.6.0)
 

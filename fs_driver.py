@@ -80,6 +80,14 @@ DEFAULTS = {
     # carichi di sezione di FlightStream dopo il run. semispan_m: semiapertura; in ccs_wing viene
     # dal CCS, in fixed va nel JSON. Senza wing_frame o semiapertura: chiavi cl_sec_* a -999.
     "spanload": {"enabled": True, "n_sections": 40, "semispan_m": None},
+    # trim (v2.7.0): con enabled l'aoa del caso e' solo alfa1; run ad alfa1 e alfa1 + dalpha_deg (sottocartelle
+    # trim_1, trim_2), alfa* per interpolazione lineare su L_N = mission.W_N, terzo run ad alfa* nella cartella del
+    # design (TUTTE le chiavi di carico vengono da li'). Status 3 se |alfa* - alfa1| > max_shift_deg o se dopo il
+    # terzo run |L - W|/W > tol_rel.
+    "trim": {"enabled": False, "dalpha_deg": 2.0, "max_shift_deg": 6.0, "tol_rel": 0.005},
+    # missione (v2.7.0): peso, velocita', densita' per CL_req, limite di semiapertura, clmax(Re) per la sezione critica
+    "mission": {"W_N": None, "V_cruise": None, "V_min": None, "rho": None, "b_half_max": None,
+                "clmax_file": None, "clmax_placeholder": False},
     # mesh del componente portante in ccs_wing (righe Mesh_U/Mesh_V del CCS, manuale 26.1 p. 82); default =
     # mesh del CCS di partenza (quella dei risultati validati). In fixed la mesh e' quella del .fsm e questo blocco non si usa.
     "mesh": {"u_pts": 120, "u_growth_type": 3, "u_growth_rate": 1.1, "u_periodicity": 2,
@@ -126,7 +134,8 @@ class FlightStreamBusy(FlightStreamUnavailable):
 FILES = {"script": "fs_script.txt", "ccs": "case_ccs.csv", "loads": "loads.txt",
          "vtk": "surface.vtk", "log": "fs_log.txt", "stdout": "fs_stdout.txt",
          "results": "results.txt", "info": "run_info.txt", "profiles": "bl_profiles.csv",
-         "fsm_out": "case.fsm", "spanload_raw": "spanload.txt", "spanload": "spanload.csv"}
+         "fsm_out": "case.fsm", "spanload_raw": "spanload.txt", "spanload": "spanload.csv",
+         "spanload_raw_N": "spanload_N.txt"}
 
 
 def log(msg):
@@ -149,7 +158,7 @@ def _onoff(flag):
 # HEEDS legge le risposte per posizione: una chiave nuova si aggiunge SOLO in fondo al file, cioe'
 # in coda all'ultima sezione (vedi README, "Contratto con HEEDS"); mai in mezzo, mai riordinare o
 # togliere chiavi. Ogni modifica dello schema incrementa SCHEMA_VERSION (scritto in results.txt).
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 RESULTS_SCHEMA = (
     ("stato", ["schema_version", "status", "converged", "iterations"]),
     ("carichi", ["CL", "CD", "CDi", "CDo", "CMx", "CMy", "CMz", "L_over_D", "L_N", "D_N"]),
@@ -166,6 +175,9 @@ RESULTS_SCHEMA = (
     ("apertura", ["cl_sec_max", "eta_cl_sec_max", "cl_sec_root", "cl_sec_eta05"]),
     # schema 5 (v2.7.0): pianta della modalita' ccs_planform (valori effettivi: c_root derivato se size_by = S_half)
     ("planform", ["c_root", "taper", "twist_tip_deg", "b_half", "S_half"]),
+    # schema 6 (v2.7.0): trim e missione, in coda (righe 1-54 invariate). D_N, Sref_m2 e b_half: chiavi esistenti
+    ("missione", ["alpha_trim", "Di_N", "D0_N", "M_root_Nm", "CLmax_wing", "CL_req", "eta_stall", "Re_tip", "AR",
+                  "e_span"]),
 )
 
 
@@ -442,14 +454,17 @@ def spanload_span(cfg, geo_span=None):
     return {"root": float(fr["span_root_m"]), "b_half": float(b), "sign": sign, "n": n}, ""
 
 
-def spanload_lines(span, path):
+def spanload_lines(span, path, path_n=None):
     """Sezioni XZ nel frame 1 (manuale 26.1 p. 363: CREATE_NEW_SURFACE_SECTION, UPDATE_ALL_SURFACE_SECTIONS,
     COMPUTE_SURFACE_SECTIONAL_LOADS, EXPORT_SURFACE_SECTIONAL_LOADS). Vanno dopo l'export di carichi e
     VTK: sono solo post-processing e non cambiano la soluzione."""
     cmds = [[f"CREATE_NEW_SURFACE_SECTION 1 XZ {_fmt(span['sign'] * (span['root'] + e * span['b_half']))} 1 DISABLE -1"]
             for e in pp.spanload_stations(span["n"])]
-    return cmds + [["UPDATE_ALL_SURFACE_SECTIONS"], ["COMPUTE_SURFACE_SECTIONAL_LOADS COEFFICIENTS"],
-                   ["EXPORT_SURFACE_SECTIONAL_LOADS", path]]
+    cmds += [["UPDATE_ALL_SURFACE_SECTIONS"], ["COMPUTE_SURFACE_SECTIONAL_LOADS COEFFICIENTS"],
+             ["EXPORT_SURFACE_SECTIONAL_LOADS", path]]
+    if path_n:      # stesse sezioni in newton (forze per unita' di lunghezza, manuale p. 250): L'(y), M_root
+        cmds += [["COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS"], ["EXPORT_SURFACE_SECTIONAL_LOADS", path_n]]
+    return cmds
 
 
 def build_script(cfg, case, geo, files, ref):
@@ -484,7 +499,7 @@ def build_script(cfg, case, geo, files, ref):
     s.append(["SET_VTK_EXPORT_VARIABLES -1 DISABLE"])
     s.append(["EXPORT_SOLVER_ANALYSIS_VTK", files["vtk"]] + surfaces_lines(cfg["postproc"]["vtk_surfaces"]))
     if cfg.get("_span"):
-        s += spanload_lines(cfg["_span"], files["spanload_raw"])
+        s += spanload_lines(cfg["_span"], files["spanload_raw"], files.get("spanload_raw_N"))
     s.append(["EXPORT_LOG", files["log"]])
     if cfg["run"]["save_fsm"]:
         s.append(["SAVEAS", files["fsm_out"]])
@@ -757,6 +772,21 @@ def read_spanload(files, cfg, case, ref, res, notes):
         factor = 2.0 if cfg["reference"]["symmetry_loads"] else 1.0
         m, tab, cl_int = pp.spanload_metrics(rows, case["aoa"], span, ref["Sref"], factor)
         res.update(m)
+        res["_spanload_tab"] = tab
+        path_n = files.get("spanload_raw_N")
+        if path_n:
+            if not os.path.isfile(path_n):
+                raise ValueError(f"file dei carichi di sezione in newton assente ({path_n})")
+            lp, lift, mom = pp.spanload_newtons(pp.parse_sectional_loads(path_n), case["aoa"], span)
+            for t in tab:
+                t["Lp_N_m"] = lp.get(round(t["y_m"] * span["sign"] - span["root"], 9), float("nan"))
+            res["M_root_Nm"] = mom
+            if res.get("L_N"):
+                half = res["L_N"] / factor
+                dev = 100.0 * (lift - half) / half
+                msg = (f"carico in apertura in newton: integrale di L' dy = {lift:.5g} N (L_N/{factor:g} = {half:.5g} N, "
+                       f"scarto {dev:+.2f} %); M_root = {mom:.5g} N m")
+                notes.append(("ATTENZIONE " + msg + ": oltre l'1 %") if not abs(dev) <= 1.0 else msg)
         pp.write_spanload(files["spanload"], tab)
         msg = f"carico in apertura: {len(rows)} sezioni, (2/Sref) * integrale di cl c dy = {cl_int:.5g}"
         if res.get("CL"):
@@ -806,6 +836,8 @@ def extract(files, mode, cfg, case, ref, fluid, res, notes):
     """Legge tutti i risultati in blocchi indipendenti, aggiorna res e restituisce lo status."""
     loads, logd = read_coefficients(files, notes)
     res.update(pp.coefficients(loads, logd))
+    if logd:        # 5 cifre significative (la tabella dei carichi ne ha 4 decimali): per Di_N, e_span, trim
+        res["_CL_log"], res["_CDi_log"] = logd["CL"], logd["CDi"]
     res.update(pp.convergence(logd, cfg["solver"]["iterations"], cfg["solver"]["convergence"]))
     coupled = bool(cfg["solver"]["viscous_coupling"])
     res.update(pp.viscous_convergence(logd, coupled, cfg["solver"]["convergence"]))
@@ -861,7 +893,8 @@ def write_run_info(workdir, status, notes, ok_statuses):
 def clean_old(workdir, keep_inputs):
     """Cancella i risultati di run precedenti (con --extract-only si tengono loads/log/vtk)."""
     names = ["results", "info", "profiles", "spanload"] + ([] if keep_inputs else
-                                                           ["loads", "vtk", "log", "stdout", "spanload_raw"])
+                                                           ["loads", "vtk", "log", "stdout", "spanload_raw",
+                                                            "spanload_raw_N"])
     for k in names:
         p = os.path.join(workdir, FILES[k])
         if os.path.exists(p):
@@ -940,6 +973,7 @@ def parse_args(argv):
     ap.add_argument("--extract-only", action="store_true", help="rilegge loads/log/VTK gia' esistenti")
     ap.add_argument("--loads"); ap.add_argument("--log"); ap.add_argument("--vtk")
     ap.add_argument("--spanload", help="carichi di sezione gia' esportati (con --extract-only)")
+    ap.add_argument("--spanload-n", help="carichi di sezione in newton gia' esportati (con --extract-only)")
     ap.add_argument("--probes", action="store_true", help="scrive gli script di prova in probes/")
     return ap.parse_args(argv)
 
@@ -958,9 +992,143 @@ def run(a, cfg, workdir, res, notes):
     case = make_case(cfg, read_params(params_path))
     res.update(case)
     fluid = fluid_state(cfg, case)
+    check_mission(cfg, case, fluid, notes)
+    if cfg["trim"]["enabled"]:
+        if a.extract_only:
+            notes.append("trim non applicato con --extract-only: un solo run riletto")
+        else:
+            return run_trim(a, cfg, workdir, case, fluid, res, notes)
+    return solve(a, cfg, workdir, case, fluid, res, notes)
+
+
+def check_mission(cfg, case, fluid, notes):
+    """Controlli del blocco mission: semiapertura massima, coerenza di densita' e velocita' di crociera."""
+    m = cfg["mission"]
+    if m["b_half_max"] and case.get("b_half") is not None and case["b_half"] > float(m["b_half_max"]) + 1e-12:
+        raise ValueError(f"b_half = {case['b_half']:g} m oltre mission.b_half_max = {m['b_half_max']:g} m")
+    if m["rho"] and abs(float(m["rho"]) - fluid["rho"]) > 1e-9:
+        notes.append(f"ATTENZIONE: mission.rho = {m['rho']} diversa dalla densita' del fluido {fluid['rho']:.6g}: "
+                     "CL_req usa mission.rho, i carichi la densita' del fluido")
+    if cfg["trim"]["enabled"]:
+        if not m["W_N"]:
+            raise ValueError("trim.enabled richiede mission.W_N (peso da equilibrare, N)")
+        if m["V_cruise"] and abs(case["velocity"] - float(m["V_cruise"])) > 1e-9:
+            raise ValueError(f"trim: velocity = {case['velocity']:g} m/s diversa da mission.V_cruise = "
+                             f"{m['V_cruise']:g} m/s (il trim si fa alla velocita' di crociera)")
+
+
+def mission_metrics(cfg, res, fluid):
+    """Grandezze di missione dai risultati di UN run (quello ad alfa* con il trim). Di_N ed e_span usano CL e CDi
+    del log (5 cifre); D0_N = CDo q Sref; AR = (2 b_half)^2 / Sref; e_span = CL^2 / (pi AR CDi);
+    CL_req = W_N / (0,5 rho V_min^2 Sref); Re_tip = V_cruise c_tip / nu, nu = mu/rho del fluido del caso."""
+    m = cfg["mission"]
+    q, S = res.get("q_Pa"), res.get("Sref_m2")
+    cl, cdi = res.get("_CL_log", res.get("CL")), res.get("_CDi_log", res.get("CDi"))
+    if q and S:
+        if cdi is not None:
+            res["Di_N"] = cdi * q * S
+        if res.get("CDo") is not None:
+            res["D0_N"] = res["CDo"] * q * S
+    span = cfg.get("_span") or cfg.get("_geo_span")
+    if span and span.get("b_half") and S:
+        res["AR"] = (2.0 * span["b_half"]) ** 2 / S
+        if cl is not None and cdi:
+            res["e_span"] = cl * cl / (math.pi * res["AR"] * cdi)
+    if m["W_N"] and m["V_min"] and S:
+        rho = float(m["rho"] or fluid["rho"])
+        res["CL_req"] = float(m["W_N"]) / (0.5 * rho * float(m["V_min"]) ** 2 * S)
+    c_tip = (cfg.get("_geo_span") or {}).get("c_tip")
+    if c_tip is None and res.get("_spanload_tab"):
+        c_tip = res["_spanload_tab"][-1]["chord_m"]          # sezione piu' esterna di FlightStream (fixed)
+    if m["V_cruise"] and c_tip and fluid["mu"]:
+        res["Re_tip"] = float(m["V_cruise"]) * c_tip * fluid["rho"] / fluid["mu"]
+
+
+def _drop_vtk(folder):
+    """I VTK dei run di trim ad alfa1 e alfa2 non servono (10 MB l'uno): si cancellano dopo l'estrazione."""
+    p = os.path.join(folder, FILES["vtk"])
+    if os.path.exists(p):
+        os.remove(p)
+
+
+def trim_alpha(a1, a2, L1, L2, W):
+    """alfa* per interpolazione (o estrapolazione) lineare di L(alfa) fra (a1, L1) e (a2, L2), con L(alfa*) = W."""
+    return a1 + (W - L1) * (a2 - a1) / (L2 - L1)
+
+
+def run_trim(a, cfg, workdir, case, fluid, res, notes):
+    """Trim su L_N = W: run ad alfa1 (aoa del caso) e alfa2 = alfa1 + dalpha in trim_1, trim_2; alfa* lineare;
+    terzo run ad alfa* nella cartella del design: tutte le chiavi di carico vengono da li'. Eco di aoa = alfa1."""
+    t, m = cfg["trim"], cfg["mission"]
+    W = float(m["W_N"])
+    a1 = case["aoa"]
+    a2 = a1 + float(t["dalpha_deg"])
+    if a.dry_run:
+        notes.append(f"trim: dry-run, scritto solo lo script ad alfa1 = {a1:g}")
+        return solve(a, cfg, workdir, case, fluid, res, notes)
+    runs = []
+    for k, alpha in ((1, a1), (2, a2)):
+        sub = os.path.join(workdir, f"trim_{k}")
+        os.makedirs(sub, exist_ok=True)
+        clean_old(sub, False)
+        r, n = {}, []
+        st = solve(a, cfg, sub, dict(case, aoa=alpha), fluid, r, n)
+        _drop_vtk(sub)
+        runs.append(r)
+        notes.append(f"trim, run {k} (cartella trim_{k}): alfa {alpha:.4f} deg, L_N {r.get('L_N', float('nan')):.4f} N, "
+                     f"status {st}")
+        if st not in (0, 4) or r.get("L_N") is None:
+            notes.extend(f"trim_{k}: {x}" for x in n)
+            return st if st not in (0, 4) else 1
+    r1, r2 = runs
+    L1, L2 = r1["L_N"], r2["L_N"]
+    if abs(L2 - L1) < 1e-9:
+        notes.append("trim: L_N uguale ad alfa1 e alfa2, alfa* non calcolabile")
+        return 3
+    astar = trim_alpha(a1, a2, L1, L2, W)
+    res["alpha_trim"] = astar
+    if abs(astar - a1) > float(t["max_shift_deg"]):
+        notes.append(f"trim: alfa* = {astar:.3f} deg dista {abs(astar - a1):.2f} deg da alfa1 (limite "
+                     f"{t['max_shift_deg']:g}): terzo run non eseguito")
+        return 3
+    st3 = solve(a, cfg, workdir, dict(case, aoa=astar), fluid, res, notes)
+    res["aoa"], res["alpha_trim"] = a1, astar
+    L3 = res.get("L_N")
+    err = abs(L3 - W) / W if L3 is not None else float("inf")
+    notes.append(f"trim: alfa1 {a1:.4f} deg -> L {L1:.4f} N; alfa2 {a2:.4f} deg -> L {L2:.4f} N; "
+                 f"alfa* {astar:.4f} deg -> L {L3 if L3 is None else round(L3, 4)} N; W {W:g} N, "
+                 f"|L-W|/W {100 * err:.3f} %")
+    crit_ok = True
+    try:
+        if not m["clmax_file"] or not m["V_min"]:
+            raise ValueError("mission.clmax_file e mission.V_min servono per la sezione critica")
+        clmax = pp.read_clmax_table(geometry._path(cfg, m["clmax_file"]))
+        nu = fluid["mu"] / fluid["rho"]
+        vmin = float(m["V_min"])
+        res["CLmax_wing"], res["eta_stall"] = pp.critical_section(
+            r1["_spanload_tab"], r2["_spanload_tab"], r1.get("_CL_log", r1["CL"]), r2.get("_CL_log", r2["CL"]),
+            lambda c: clmax(vmin * c / nu))
+        if m["clmax_placeholder"]:
+            notes.append("sezione critica: clmax(Re) SEGNAPOSTO (costante, in attesa di XFOIL): CLmax_wing e "
+                         "eta_stall non sono stime fisiche")
+    except Exception as e:
+        crit_ok = False
+        notes.append(f"sezione critica: {type(e).__name__}: {e}")
+    if st3 not in (0, 4):
+        return st3
+    if err > float(t["tol_rel"]):
+        notes.append(f"trim: |L-W|/W = {100 * err:.3f} % oltre {100 * float(t['tol_rel']):g} %")
+        return 3
+    return st3 if crit_ok else 4
+
+
+def solve(a, cfg, workdir, case, fluid, res, notes):
+    """Un run di FlightStream a un alfa (o la rilettura con --extract-only) nella cartella workdir."""
+    mode = cfg["geometry"]["mode"]
     rf = cfg["reference"]
     if a.extract_only:
         files = {"loads": a.loads, "log": a.log, "vtk": a.vtk, "spanload_raw": a.spanload,
+                 "spanload_raw_N": a.spanload_n,
                  "profiles": os.path.join(workdir, FILES["profiles"]),
                  "spanload": os.path.join(workdir, FILES["spanload"])}
         ref = {"Sref": rf["sref_m2"], "Lref": rf["lref_m"]}
@@ -970,6 +1138,7 @@ def run(a, cfg, workdir, res, notes):
         geo = geometry.build_geometry(case, cfg, workdir)
         ref = {"Sref": rf["sref_m2"] or geo["Sref"], "Lref": rf["lref_m"] or geo["Lref"]}
         cfg["_span"], why = spanload_span(cfg, geo.get("span"))
+        cfg["_geo_span"] = geo.get("span")
         res.update(geo.get("echo", {}))             # grandezze di pianta effettive (ccs_planform)
         if not ref["Sref"] or not ref["Lref"]:
             raise ValueError("Sref/Lref mancanti: con questa modalita' vanno nel JSON "
@@ -991,6 +1160,7 @@ def run(a, cfg, workdir, res, notes):
         if rc != 0:
             notes.append(f"FlightStream ha restituito il codice {rc}")
     status = extract(files, mode, cfg, case, ref, fluid, res, notes)
+    mission_metrics(cfg, res, fluid)
     if a.validate:
         validate(res, cfg["validation"])
     return status
