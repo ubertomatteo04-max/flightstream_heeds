@@ -1,4 +1,4 @@
-# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.7.0 in corso: Parte 7, ala parametrica per SHERPA – 7A e 7B fatte)
+# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.7.0 in corso: Parte 7, ala parametrica per SHERPA – 7A, 7B, 7C fatte)
 
 **Lavoro sull'ala chiuso (v2.6.0).** Conclusioni per il team: `REPORT_ALA.md`. Configurazione di riferimento D
 (disaccoppiata, separazione `none`); C e CS esplorative (`configs/esplorativi/`); modello di separazione abbandonato
@@ -760,6 +760,21 @@ XFOIL non usato in questa fase (`reference\xfoil\` resta com'è).
   6,52 N (Di 1,14, D0 5,40), e_span 0,888, M_root 89,6 N m, 49–54 s per design (3 run). 8 vertici e 2 estremi di apertura
   (b_half 2,112 e 3,04): tutti status 0, 52–57 s, α* da −0,10° a 5,64°, |L−W|/W ≤ 0,072 %, ∫L'dy = L_N/2 entro 0,54 %.
   Con il clmax segnaposto CL_req > CLmax_wing nei 4 design con c_root 0,8 c0 (non volerebbero a 12 m/s).
+
+**7C – benchmark sulla rastremazione** (`diagnostica/planform/benchmark_taper.md`, `.py`, 3 grafici; JSON
+`configs/esplorativi/case_planform_taper_S.json`: size_by S_half, S_half 0,911041, b_half 2,64, twist 0, trim W 147,15 N)
+- 16 design (taper 0,25–1,00), tutti status 0, 49–53 s (il primo 80 s), α* 1,354–1,440°.
+- **Minimo di Di_N a taper 0,35–0,40** (discreto 0,35 = 1,0578 N, 0,40 uguale a 4 decimali; parabola 0,382): dentro
+  l'atteso 0,3–0,45. e_span da 0,888 (taper 1) a **0,954** (massimo a 0,40); Di_N rettangolare/ottimo = 1,075. e massimo
+  più basso dell'atteso ≈ 0,98 della linea portante: lo scarto relativo fra rettangolare e ottimo (7,5 %) è invece vicino.
+- η_stall (clmax segnaposto) va verso l'estremità al diminuire del taper (0,06 → 0,75), a gradini per le 40 sezioni
+  discrete e il plateau di cl.
+- **Rumore di Di_N:** differenze seconde ≤ 0,33 % (quasi tutta curvatura vera); tolta la curvatura del polinomio di 4°
+  grado ≤ 0,04 %; residui RMS 0,016 %: sotto lo 0,5 %, **Di_N è adatto a SHERPA**.
+- **Attenzione per SHERPA – D_N e D0_N quantizzati:** CDo e CD hanno 4 decimali nella tabella dei carichi, quindi D0_N
+  vale solo 5,357 o 5,402 N e D_N salta a gradini di 0,045 N (0,7 % di D_N, oltre lo 0,5 %). Con D_N come obiettivo
+  SHERPA vedrebbe un gradino. Proposta (non fatta): esportare i carichi anche in NEWTONS (più cifre su D0) o
+  ricostruire CDo da cf del VTK.
 
 ## 4. Metriche di separazione: implementate e ancora proposte
 
