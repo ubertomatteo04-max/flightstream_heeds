@@ -1,4 +1,4 @@
-# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.8.2: Parte 8 – 7C.1, 7E, 7F, 7G fatte; pronto lo studio SHERPA completo)
+# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.8.2: Parte 8 – studio SHERPA completo eseguito e verificato, 7H)
 
 **Lavoro sull'ala chiuso (v2.6.0).** Conclusioni per il team: `REPORT_ALA.md`. Configurazione di riferimento D
 (disaccoppiata, separazione `none`); C e CS esplorative (`configs/esplorativi/`); modello di separazione abbandonato
@@ -847,6 +847,20 @@ XFOIL non usato in questa fase (`reference\xfoil\` resta com'è).
   (≈ 80 s per design, ≈ 3,3 h; Max execution time 3000 s sufficiente), criteri di accettazione (migliore < 5,24 N;
   stima ≈ 4,9 N con b_half al limite e stall_margin ≈ 0), verifica 7H (da non eseguire ora), tabella delle 65 righe.
   Nota: nel benchmark lo studio era in `errorMode: STOP`; per lo studio completo va impostato di non fermarsi sugli errori.
+
+**7H – verifica del design migliore SHERPA** (`diagnostica/planform/verifica_7h.md`, `verifica_7h.png`,
+`run_verifica_7h.py`, `analisi_7h.py`)
+- Studio HEEDS `Desktop\heeds\semiala_planform_full` (150 valutazioni, `saveDesigns: LatestBest`): migliore = Design129,
+  params.txt esatto **c_root 0,287040, taper 0,508000, twist_tip_deg −0,440000, b_half 3,03072**. Rilanciato con
+  `run_fs.bat` (params copiati senza riscrittura): D_N 4,90745 e stall_margin 0,0118607 **identici** allo studio.
+- ΔD_N migliore − baseline: **−25,18 %** (U120 × V64) e **−25,63 %** (U180 × V64; Di −28,5 %, D0 −25,1 %): **criterio
+  superato** (stesso segno, > 3 % sulla mesh fine). Mesh fine: migliore D_N 5,0232 N, stall_margin 0,0112, η_stall 0,572
+  (0,506 sulla mesh dello studio). Criteri di accettazione della scheda: D_N 4,91 < 5,24 N, b_half al limite (3,03),
+  stall_margin ≈ 0 attivo, η_stall ≤ 0,6, c_root non sul limite inferiore; anche Re_tip (200 702) è sul vincolo.
+- **Sensibilità allo stallo:** con clmax XFOIL **Ncrit 5** (`xfoil/clmax_vs_Re_N5.csv`, non attivo; ricalcolo dalle
+  sezioni dei run ad α1, α2) lo stall_margin del migliore diventa **−0,026** (η_stall 0,572): **non ammissibile**. La
+  baseline resta a +0,329. Il migliore ha cl/clmax ≈ 1 su η 0,25–0,75 alla condizione di stallo: margine e η_stall sono
+  molto sensibili a clmax e mesh.
 
 ## 4. Metriche di separazione: implementate e ancora proposte
 

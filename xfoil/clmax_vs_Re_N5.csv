@@ -1,0 +1,12 @@
+# clmax(Re) di vespa_root.dat, XFOIL 6.99 Ncrit 5 (sensibilita', 7H), dalle polari in xfoil/polars.
+# NON attivo in nessun JSON.
+Re,clmax,alpha_stall_deg,source
+100000,1.2239,13.75,XFOIL Ncrit 5
+150000,1.2622,14.75,XFOIL Ncrit 5
+200000,1.2945,14.50,XFOIL Ncrit 5
+250000,1.3261,14.50,XFOIL Ncrit 5
+300000,1.3541,14.75,XFOIL Ncrit 5
+400000,1.4069,15.00,XFOIL Ncrit 5
+500000,1.4529,15.25,XFOIL Ncrit 5
+600000,1.4888,15.75,XFOIL Ncrit 5
+800000,1.5451,16.25,XFOIL Ncrit 5
