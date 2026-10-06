@@ -1,4 +1,4 @@
-# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.6.0: ala completa – mesh, carico in apertura, collaudo, report)
+# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.7.0 in corso: Parte 7, ala parametrica per SHERPA – 7A fatta)
 
 **Lavoro sull'ala chiuso (v2.6.0).** Conclusioni per il team: `REPORT_ALA.md`. Configurazione di riferimento D
 (disaccoppiata, separazione `none`); C e CS esplorative (`configs/esplorativi/`); modello di separazione abbandonato
@@ -702,6 +702,42 @@ XFOIL non usato in questa fase (`reference\xfoil\` resta com'è).
   Study_2: **VERIFICA OK** (anche contro il DOE di collaudo). Report in `Desktop\fs_heeds_pipeline\reports\semiala_Study_2_v260`.
 
 **Parte 5** – `REPORT_ALA.md` (report per il team), DEMO.md, README (quick start) e questo file aggiornati.
+
+### 3.15 Parte 7 – ala parametrica per SHERPA (v2.7.0, 2026-10-06; si procede una sotto-parte alla volta)
+
+**7.0 – verifica dei dati (solo lettura)**
+- CCS di ccs_wing e `.fsm` (mesh esportata nel VTK del run fixed): b/2 = 2,64 m; corda alla radice = all'estremità =
+  0,345091 m (ala rettangolare, non svergolata, 200 punti per sezione); S semiala 0,911041 m², ala intera 1,822082 m².
+  Unità: **nessuna dichiarata** (manca `Units;` nel CCS; nessuna voce nel `.fsm`); metri dimostrati indirettamente
+  (Re 474985 di FlightStream = ρ V Lref / μ con Lref in m) e dal default della simulazione (manuale p. 18).
+- C_L richiesto (ρ 1,225, S 1,82208 m²; α stimati dalla retta di D, non run):
+
+| W | C_L a 20 m/s | C_L a 12 m/s |
+|---|---|---|
+| 29,43 N (3 kg, primo dato) | 0,0659 (α ≈ −1,3°) | 0,1831 (α ≈ −0,1°) |
+| **147,15 N (15 kg, velivolo completo, dato del team)** | **0,3296** (α ≈ 1,4°) | **0,9157** (α ≈ 7,5°) |
+
+- Correzione dell'utente: W = 147,15 N sostituisce 215,8 N; V_min = 12 m/s (ipotesi da confermare). Valgono per la 7B.
+
+**7A – modalità `ccs_planform`**
+- Profilo: `profiles/vespa_root.dat` (Selig, 200 punti, corda 1 = estensione in x, LE in 0, TE tozzo 0,652 % c) da
+  `profiles/estrai_vespa_root.py` (sezione y = 0 del CCS; LE della radice (0,002108707; 0; 0,01586614) m).
+- `geometry.py`: modalità `ccs_planform` (variabili `c_root` o `S_half` secondo `geometry.size_by`, `taper`,
+  `twist_tip_deg`, `b_half`; `geometry.n_sections` default 7 sezioni equidistanti; linea dei quarti di corda dritta;
+  svergolamento lineare in η attorno a c/4, positivo a cabrare). Stesso numero di punti per sezione, pannelli fissi
+  dal blocco `mesh` (15 262 in tutti i casi provati). Intestazione del CCS 26.1 (p. 77): `ReferenceArea`,
+  `ReferenceLength`, `Units;Meter`, riga vuota; come FlightStream interpreti ReferenceArea (ala o semiala) è
+  **DA VERIFICARE**, ma Sref/Lref effettivi vengono da `SOLVER_SET_REF_AREA/LENGTH` (Sref = 2 S_half calcolata,
+  Lref = MAC). Import del CCS e tappo di radice in una funzione comune con ccs_wing (script di ccs_wing identico byte per
+  byte a prima). Manuale: quello installato (`/mnt/project` non esiste su questa macchina).
+- Schema 5: righe 50–54 `c_root taper twist_tip_deg b_half S_half` (valori effettivi; -999 nelle altre modalità).
+  `case_semiala_planform.json` in radice; baseline `baseline/planform`, `heeds_inputs/planform`; preflight e
+  `regen_baseline.py` estesi. Test `tests/test_planform.py` (geometria, segno dello svergolamento, S_half, errori).
+- **Test di equivalenza** (taper 1, twist 0, c_root e b_half della baseline, run reale): sezioni del CCS = CCS di
+  partenza entro 2·10⁻¹¹ m; righe 2–49 di results.txt **identiche** a ccs_wing (CL 0,5767, CDi 0,0077, CDo 0,0125,
+  CMy −0,1993, 91 iterazioni, anche residui e CL/CDi a 5 cifre nel log), salvo l'eco di chord_scale (−999).
+- **8 vertici** (c_root 0,8/1,6 × c0, taper 0,4/1,0, twist −5/+1, b_half = b0, α 4°): tutti status 0, 89–93
+  iterazioni, 16,8–19,0 s; ∫cl·c = CL entro 0,55 %. Tabella in `diagnostica/planform/vertici.md`.
 
 ## 4. Metriche di separazione: implementate e ancora proposte
 

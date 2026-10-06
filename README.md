@@ -33,7 +33,7 @@ cd /d "C:\HEEDS prove\Design_1\Analysis_1"
 echo %ERRORLEVEL%
 ```
 Atteso in 15–45 s: codice di uscita 0, `results.txt` uguale a `baseline\fixed\results_baseline.txt`
-(`schema_version = 4`, `status = 0`, CL 0,5767, CDi 0,0077, CDo 0,0125, CMy −0,1993, Re 474985).
+(`schema_version = 5`, `status = 0`, CL 0,5767, CDi 0,0077, CDo 0,0125, CMy −0,1993, Re 474985).
 Il motivo di uno status diverso da 0 è in `run_info.txt`, che termina con
 `FS_DRIVER_RESULT status=<n> success=<0|1>`.
 
@@ -57,14 +57,14 @@ heeds_report.bat --study "...\semiala_Study_2" --check-against-mock mock_runs\su
 ```
 
 **5. HEEDS:** seguire `HEEDS_SETUP.md` (procedura passo-passo del primo Evaluation Only, con la tabella
-delle 49 righe di `results.txt` da taggare e i file `heeds_inputs\<modalità>\params.txt` / `results.txt`
+delle 54 righe di `results.txt` da taggare e i file `heeds_inputs\<modalità>\params.txt` / `results.txt`
 da aggiungere in HEEDS).
 
 **Da sapere in breve**
 - Due modalità: `fixed` (template `.fsm`, variabili `aoa`, `velocity`, `sideslip`) e `ccs_wing` (semiala da
   CCS, in più `chord_scale`; `sideslip` = 0). Con `chord_scale` Sref cambia: obiettivi `L_over_D` o
   `L_N`/`D_N`, non CL.
-- `results.txt` ha sempre 49 righe nello stesso ordine (`-999` = non disponibile, schema 4); chiavi nuove solo in
+- `results.txt` ha sempre 54 righe nello stesso ordine (`-999` = non disponibile, schema 5); chiavi nuove solo in
   fondo. Righe 46–49: carico lungo l'apertura (`cl_sec_*`, `spanload.csv` nella cartella del design).
 - Incertezze (v2.6.0, `REPORT_ALA.md`): mesh ≈ 1 % sui carichi inviscidi, CDo GCI 2,9 % a 4° e 13,8 % a 12°;
   bordo d'uscita raccordato (default) contro tozzo (`te_type: "blunt"`, opzione): ≈ 4 % su CL, ≈ 6 % su CMy.
@@ -249,8 +249,8 @@ Test automatici (senza FlightStream): `python -m unittest discover -s tests -v` 
   anche l'ultima riga stampata dal driver; `success = 1` se lo status è in `heeds.success_statuses` (cioè
   se il codice di uscita è 0). È l'alternativa al codice di uscita per la condizione "File contains"
   di HEEDS (cercare `success=1`).
-- `results.txt` comincia con `schema_version = 4`. Success condition in HEEDS: codice di uscita = 0
-  (verificato) e, facoltativa, "File contains" `schema_version = 4` in `results.txt` (vedi `HEEDS_SETUP.md`).
+- `results.txt` comincia con `schema_version = 5`. Success condition in HEEDS: codice di uscita = 0
+  (verificato) e, facoltativa, "File contains" `schema_version = 5` in `results.txt` (vedi `HEEDS_SETUP.md`).
 
 | status | Significato | Coefficienti scritti? |
 |---|---|---|
@@ -286,21 +286,22 @@ nello stesso ordine per **tutte** le modalità; quelle non pertinenti valgono -9
 | ingressi (eco) | `aoa velocity altitude sideslip chord_scale` |
 | viscoso (schema 3, v2.5.0) | `viscous_coupling separation_model iterations_inviscid iterations_viscous converged_viscous sep_marker_frac_up` |
 | apertura (schema 4, v2.6.0) | `cl_sec_max eta_cl_sec_max cl_sec_root cl_sec_eta05` |
+| planform (schema 5, v2.7.0) | `c_root taper twist_tip_deg b_half S_half` (pianta effettiva di `ccs_planform`) |
 
 Il significato è in `HEEDS_SETUP.md`. **HEEDS legge le risposte per posizione.** Regole:
-- una chiave nuova si aggiunge **solo in fondo al file** (in coda all'ultima sezione, oggi "apertura"):
+- una chiave nuova si aggiunge **solo in fondo al file** (in coda all'ultima sezione, oggi "planform"):
   aggiungerla in coda a una sezione intermedia sposterebbe tutte le righe successive;
 - mai riordinare né togliere chiavi;
 - una variabile geometrica nuova (modalità nuova) va aggiunta in fondo a `RESULTS_SCHEMA`: se manca, il
   driver si ferma all'avvio invece di spostare le posizioni in silenzio;
 - **ogni modifica dello schema incrementa `SCHEMA_VERSION`** (scritto come `schema_version` nella prima
-  riga di `results.txt`): così HEEDS, se controlla `schema_version = 4`, rifiuta un results.txt con
+  riga di `results.txt`): così HEEDS, se controlla `schema_version = 5`, rifiuta un results.txt con
   un ordine diverso da quello taggato invece di leggere righe sbagliate;
 - `tests/test_schema.py` controlla che `fixed` e `ccs_wing` scrivano lo stesso elenco, che le
-  posizioni dello schema 4 non cambino (e le righe taggate 2, 5, 6, 10, 12) e che la prima riga sia `schema_version = 4`
+  posizioni dello schema 5 non cambino (e le righe taggate 2, 5, 6, 10, 12) e che la prima riga sia `schema_version = 5`
   (`python -m unittest discover -s tests -v`).
 
-Lo schema 4 (v2.6.0) aggiunge in coda le 4 righe della sezione "apertura" (46–49, carico lungo l'apertura,
+Lo schema 5 (v2.7.0) aggiunge in coda le 5 righe "planform" (50–54); lo schema 4 (v2.6.0) le 4 righe della sezione "apertura" (46–49, carico lungo l'apertura,
 vedi sotto); lo schema 3 (v2.5.0) le 6 righe della sezione "viscoso" (40–45). Le righe 1–39 sono quelle
 dello schema 2, quindi il tagging HEEDS esistente resta valido. Lo schema 2 (v2.2.1) aveva riordinato le
 chiavi rispetto alla v2.1 (riferimenti dopo i carichi, eco
@@ -343,6 +344,7 @@ Le chiavi che iniziano con `_` sono commenti. Esempi: `case_semiala_fixed.json`,
 | `geometry.mode` | `fixed` (template .fsm) oppure `ccs_wing` (semiala da CCS); le altre chiavi di `geometry` dipendono dalla modalità e le legge solo `geometry.py` |
 | `geometry.template_fsm` | (`fixed`) il .fsm già pronto: la mesh e il fluido vengono da lì |
 | `geometry.reinitialize` | (`fixed`) `true` (default) = OPEN con `LOAD_SOLVER_INITIALIZATION DISABLE`, modello fisico e `INITIALIZE_SOLVER` dal blocco `solver`; `false` = inizializzazione e modello fisico salvati nel .fsm. La vecchia chiave `open_options` non è più ammessa (errore) |
+| `geometry.profile`, `root_le_m`, `n_sections`, `size_by` | (`ccs_planform`, v2.7.0) profilo Selig (corda 1, LE in 0; `profiles/vespa_root.dat` da `profiles/estrai_vespa_root.py`), LE della radice [x, 0, z] in m, numero di sezioni (default 7, equidistanti), `c_root` (default) oppure `S_half` come variabile di dimensione (c_root = 2 S_half / (b_half (1 + taper))). Variabili: `c_root` o `S_half`, `taper`, `twist_tip_deg` (lineare in η, positivo a cabrare, attorno a c/4), `b_half`; linea dei quarti di corda dritta; Sref = area calcolata, Lref = MAC. Anche `te_type`, `root_cap_tol_m` e il blocco `mesh` come in ccs_wing |
 | `geometry.base_ccs`, `te_type`, `root_cap_tol_m` | (`ccs_wing`) CCS di partenza, tipo di bordo d'uscita (`blended` = attuale; `sharp` NON fedele, CL −33 %; `blunt` richiede le base region, vedi STATO §3.14), tolleranza in y per togliere il tappo di radice |
 | `mesh.u_pts`, `u_growth_type`, `u_growth_rate`, `u_periodicity`, `v_pts`, `v_growth_type`, `v_growth_rate`, `v_periodicity` | (`ccs_wing`, v2.6.0) righe `Mesh_U` (corda) e `Mesh_V` (apertura) del CCS, manuale 26.1 p. 82; default 120;3;1.1;2 e 64;1;1.0;1 = mesh attuale (convergenza: STATO §3.14). `geometry.mesh_u/mesh_v` non sono più accettate |
 | `spanload.enabled`, `n_sections`, `semispan_m` | (v2.6.0) carico lungo l'apertura, vedi sopra; `semispan_m` obbligatoria in `fixed` |

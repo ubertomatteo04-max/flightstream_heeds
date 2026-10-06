@@ -1,0 +1,9 @@
+# params_baseline.txt - modalita ccs_planform (case_semiala_planform.json): file per il tagging delle variabili in HEEDS.
+# Variabili: aoa [deg], velocity [m/s], c_root [m] (oppure S_half [m2] con geometry.size_by = "S_half"), taper [-],
+# twist_tip_deg [deg, positivo a cabrare], b_half [m]. sideslip = 0 (Mirror). Valori = baseline (rettangolare, non svergolata).
+aoa = 4.0
+velocity = 20.0
+c_root = 0.345091293
+taper = 1.0
+twist_tip_deg = 0.0
+b_half = 2.64

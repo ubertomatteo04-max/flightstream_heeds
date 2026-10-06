@@ -65,7 +65,7 @@ class TestSpanload(unittest.TestCase):
 
     def test_extract_with_spanload(self):
         lines, res, info, csv_ok = extract(["--spanload", os.path.join(FIX, "sectional_a04.txt")])
-        self.assertEqual(len(lines), 49)
+        self.assertEqual(len(lines), len(fs_driver.result_keys()))
         self.assertNotEqual(res["cl_sec_eta05"], "-999")
         self.assertIn("scarto", info)
         self.assertTrue(csv_ok)

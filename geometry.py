@@ -23,6 +23,10 @@ Modalita' disponibili:
                 nel .fsm. Nessuna variabile geometrica.
     "ccs_wing"  semiala da file CCS con la corda scalata da 'chord_scale', simmetria Mirror sul
                 piano XZ, radice su y = 0. Un solo componente portante.
+    "ccs_planform" (v2.7.0) semiala parametrica generata da un profilo (geometry.profile, formato Selig):
+                c_root (oppure S_half con geometry.size_by = "S_half"), taper, twist_tip_deg (lineare in eta,
+                positivo a cabrare, rotazione attorno a c/4), b_half; geometry.n_sections sezioni uguali in
+                apertura, linea dei quarti di corda dritta e perpendicolare al flusso. Mirror come ccs_wing.
 
 COME AGGIUNGERE UNA MODALITA'
  1. In GEOMETRY_VARIABLES aggiungi il nome della modalita' con la lista delle variabili che HEEDS
@@ -44,22 +48,41 @@ COME AGGIUNGERE UNA MODALITA'
     (per esempio con subprocess) e restituisci le righe di import di FlightStream e
     l'inizializzazione, come fa _ccs_wing per il CCS.
 """
+import math
 import os
 
 GEOMETRY_VARIABLES = {
     "fixed": [],
     "ccs_wing": ["chord_scale"],
+    # unione delle variabili possibili (per lo schema di results.txt); quelle ammesse in un caso dipendono da
+    # geometry.size_by (allowed_variables): c_root OPPURE S_half
+    "ccs_planform": ["c_root", "taper", "twist_tip_deg", "b_half", "S_half"],
 }
 
 POSTPROC = {
     "fixed": "generic",
     "ccs_wing": "wing_strip",
+    "ccs_planform": "wing_strip",
 }
 
 NEW_SIMULATION = {
     "fixed": False,
     "ccs_wing": True,
+    "ccs_planform": True,
 }
+
+PLANFORM_SIZE_BY = ("c_root", "S_half")
+
+
+def allowed_variables(cfg):
+    """Variabili geometriche ammesse in params.txt / blocco case per il caso del JSON."""
+    mode = cfg["geometry"]["mode"]
+    if mode != "ccs_planform":
+        return list(GEOMETRY_VARIABLES[mode])
+    size = cfg["geometry"].get("size_by", "c_root")
+    if size not in PLANFORM_SIZE_BY:
+        raise ValueError(f"geometry.size_by = {size!r} non valido: 'c_root' oppure 'S_half'")
+    return [size, "taper", "twist_tip_deg", "b_half"]
 
 # Bordo d'uscita in ccs_wing (manuale 26.1 p. 84; prove in STATO.md, v2.6.0):
 #   blended  default: raccordo del TE tozzo (0,652 % c) verso il punto medio, da x/c ~0,9; risultati validati
@@ -175,14 +198,7 @@ def _ccs_wing(params, cfg, workdir):
     tol = g["root_cap_tol_m"]
     if abs(ref["y_root"]) > tol:
         raise ValueError(f"La radice non e' su y=0 (y={ref['y_root']:.6f} m): Mirror non applicabile.")
-    lines = [["NEW_SIMULATION"], ["SET_SIMULATION_LENGTH_UNITS METER"],
-             ["CCS_IMPORT", "CLOSE_COMPONENT_ENDS ENABLE", "UPDATE_PROPERTIES DISABLE",
-              "CLEAR_EXISTING ENABLE", f"FILE {dst}"],
-             ["# tappo di radice: rimosso (radice aperta sul piano di simmetria XZ)",
-              "SURFACE_SELECT_BY_THRESHOLD", "FRAME 1", "THRESHOLD Y",
-              f"MIN_VALUE {_fmt(-(ref['b_half'] + 1.0))}", f"MAX_VALUE {_fmt(tol)}",
-              "RANGE BELOW_MAX", "SUBSET ALL_FACES"],
-             ["DELETE_SELECTED_FACES"]]
+    lines = ccs_import_lines(dst, ref["b_half"], tol)
     if g["te_type"].lower() == "blunt":
         # TE tozzo fedele (v2.6.0, opzione): Blunt_trailing_edges crea le facce di base in un boundary proprio
         # (manuale 26.1 p. 84); i bordi d'uscita (Kutta) si marcano sulla base region (p. 316). La base e' una
@@ -198,6 +214,119 @@ def _ccs_wing(params, cfg, workdir):
     return {"lines": lines, "init_lines": initialize_solver_lines(sol), "explicit_physics": True,
             "Sref": factor * ref["S_half"], "Lref": ref["MAC"],
             "span": {"y_root": ref["y_root"], "b_half": ref["b_half"]}}
+
+
+def ccs_import_lines(dst, b_half, tol):
+    """Simulazione nuova, import del CCS e rimozione del tappo di radice (radice aperta sul piano XZ)."""
+    return [["NEW_SIMULATION"], ["SET_SIMULATION_LENGTH_UNITS METER"],
+            ["CCS_IMPORT", "CLOSE_COMPONENT_ENDS ENABLE", "UPDATE_PROPERTIES DISABLE",
+             "CLEAR_EXISTING ENABLE", f"FILE {dst}"],
+            ["# tappo di radice: rimosso (radice aperta sul piano di simmetria XZ)",
+             "SURFACE_SELECT_BY_THRESHOLD", "FRAME 1", "THRESHOLD Y",
+             f"MIN_VALUE {_fmt(-(b_half + 1.0))}", f"MAX_VALUE {_fmt(tol)}",
+             "RANGE BELOW_MAX", "SUBSET ALL_FACES"],
+            ["DELETE_SELECTED_FACES"]]
+
+
+# --------------------------------------------------------------------------------------
+# Modalita' "ccs_planform": semiala parametrica (v2.7.0)
+# --------------------------------------------------------------------------------------
+def read_selig(path):
+    """Profilo in formato Selig: riga del nome, poi 'x z' dal TE del dorso al LE e al TE del ventre."""
+    with open(path, "r", encoding="utf-8-sig") as f:
+        rows = [ln.split() for ln in f.read().splitlines()[1:] if ln.strip()]
+    pts = [(float(r[0]), float(r[1])) for r in rows]
+    if len(pts) < 10:
+        raise ValueError(f"profilo con meno di 10 punti: {path}")
+    return pts
+
+
+def planform_geometry(c_root, taper, twist_tip_deg, b_half, n_sections, le_root):
+    """Grandezze in pianta: corda lineare in eta, linea dei quarti di corda dritta (x costante).
+    S_half = b c_root (1 + taper) / 2;  MAC = 2/3 c_root (1 + t + t^2) / (1 + t);  c_tip = taper c_root."""
+    if c_root <= 0 or taper <= 0 or b_half <= 0:
+        raise ValueError(f"c_root, taper e b_half devono essere > 0 (ricevuti {c_root}, {taper}, {b_half})")
+    if abs(twist_tip_deg) > 20:
+        raise ValueError(f"twist_tip_deg = {twist_tip_deg}: oltre +/-20 gradi")
+    if int(n_sections) != n_sections or n_sections < 2:
+        raise ValueError(f"geometry.n_sections = {n_sections}: intero >= 2")
+    t = taper
+    return {"c_root": c_root, "c_tip": t * c_root, "S_half": b_half * c_root * (1 + t) / 2,
+            "MAC": 2.0 / 3.0 * c_root * (1 + t + t * t) / (1 + t), "x_c4": le_root[0] + c_root / 4,
+            "b_half": b_half}
+
+
+def planform_sections(prof, geo, taper, twist_tip_deg, n_sections, le_root):
+    """Sezioni del CCS: profilo scalato alla corda locale, LE sulla linea x_c4 - c/4, poi rotazione di
+    twist(eta) attorno al punto a c/4 sulla quota del LE della radice (positivo a cabrare: LE su, TE giu').
+    Stesso numero di punti in ogni sezione; sezioni equidistanti in apertura."""
+    x0, y0, z0 = le_root
+    xc4 = geo["x_c4"]
+    out = []
+    for k in range(int(n_sections)):
+        eta = k / (n_sections - 1)
+        c = geo["c_root"] * (1 + (taper - 1) * eta)
+        th = math.radians(twist_tip_deg * eta)
+        ct, st = math.cos(th), math.sin(th)
+        sec = []
+        for xh, zh in prof:
+            dx, dz = (xc4 - c / 4 + c * xh) - xc4, c * zh
+            sec.append([xc4 + dx * ct + dz * st, y0 + eta * geo["b_half"], z0 - dx * st + dz * ct])
+        out.append(sec)
+    return out
+
+
+def write_planform_ccs(dst, sections, mesh, te_type, s_full, mac):
+    """CCS con intestazione 26.1 (manuale p. 77: ReferenceArea, ReferenceLength, Units; riga vuota dopo
+    l'intestazione). Sref/Lref effettivi vengono comunque da SOLVER_SET_REF_AREA/LENGTH dello script;
+    come FlightStream usi ReferenceArea/ReferenceLength del CCS (ala intera o semiala): DA VERIFICARE."""
+    if te_type.lower() not in TE_PARAMS:
+        raise ValueError(f"geometry.te_type '{te_type}' non valido. Ammessi: {sorted(TE_PARAMS)}")
+    out = ["Aircraft;Vespa_planform", f"ReferenceArea;{_fmt(s_full)}", f"ReferenceLength;{_fmt(mac)}",
+           "Units;Meter", "", "Component;Semiala", "LiftingSurface;true"] + list(mesh)
+    out += TE_PARAMS[te_type.lower()] + ["V_Loft_C0", "U_Loft_C2"]
+    out += ["CrossSection;" + ";".join(_fmt(c) for p in sec for c in p) for sec in sections]
+    with open(dst, "w", encoding="utf-8") as f:
+        f.write("\n".join(out) + "\n")
+
+
+def _ccs_planform(params, cfg, workdir):
+    """Semiala parametrica: CCS generato dal profilo e dai parametri di pianta, poi come ccs_wing."""
+    g, sol = cfg["geometry"], cfg["solver"]
+    if abs(params.get("sideslip", 0.0)) > 1e-12:
+        raise ValueError("ccs_planform usa la simmetria Mirror: sideslip deve essere 0.")
+    if str(sol.get("symmetry")).upper() != "MIRROR":
+        raise ValueError("ccs_planform costruisce solo la semiala: solver.symmetry deve essere \"MIRROR\".")
+    prof_path = _path(cfg, g.get("profile", ""))
+    if not os.path.isfile(prof_path):
+        raise ValueError(f"geometry.profile non trovato: {prof_path}")
+    le_root = g.get("root_le_m")
+    if not isinstance(le_root, list) or len(le_root) != 3 or abs(float(le_root[1])) > 1e-12:
+        raise ValueError("geometry.root_le_m = [x, 0, z] del LE della radice (m) e' obbligatoria (y = 0)")
+    le_root = [float(v) for v in le_root]
+    taper, twist, b_half = params["taper"], params["twist_tip_deg"], params["b_half"]
+    if g.get("size_by", "c_root") == "S_half":
+        if params["S_half"] <= 0 or taper <= 0 or b_half <= 0:
+            raise ValueError("S_half, taper e b_half devono essere > 0")
+        c_root = 2.0 * params["S_half"] / (b_half * (1.0 + taper))
+    else:
+        c_root = params["c_root"]
+    n = g.get("n_sections", 7)
+    geo = planform_geometry(c_root, taper, twist, b_half, n, le_root)
+    sections = planform_sections(read_selig(prof_path), geo, taper, twist, n, le_root)
+    dst = os.path.join(workdir, "case_ccs.csv")
+    factor = 2.0 if cfg["reference"]["symmetry_loads"] else 1.0
+    write_planform_ccs(dst, sections, mesh_lines(cfg), g.get("te_type", "blended"), factor * geo["S_half"], geo["MAC"])
+    lines = ccs_import_lines(dst, b_half, g.get("root_cap_tol_m", 1e-4))
+    if g.get("te_type", "blended").lower() == "blunt":
+        if sol.get("init_surfaces") != -1:
+            raise ValueError("geometry.te_type \"blunt\" richiede solver.init_surfaces = -1")
+        lines += [["AUTO_DETECT_BASE_REGIONS"], ["SET_BASE_REGION_TRAILING_EDGES -1"]]
+    return {"lines": lines, "init_lines": initialize_solver_lines(sol), "explicit_physics": True,
+            "Sref": factor * geo["S_half"], "Lref": geo["MAC"],
+            "span": {"y_root": 0.0, "b_half": b_half},
+            "echo": {"c_root": c_root, "S_half": geo["S_half"], "taper": taper, "twist_tip_deg": twist,
+                     "b_half": b_half}}
 
 
 def _section_points(line):
@@ -318,4 +447,5 @@ def wing_reference(sections):
 _MODES = {
     "fixed": _fixed,
     "ccs_wing": _ccs_wing,
+    "ccs_planform": _ccs_planform,
 }

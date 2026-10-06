@@ -1,4 +1,4 @@
-schema_version = 4
+schema_version = 5
 status = 0
 converged = 1
 iterations = 91
@@ -47,3 +47,8 @@ cl_sec_max = 0.63591
 eta_cl_sec_max = 0.0588636
 cl_sec_root = 0.635807
 cl_sec_eta05 = 0.615943
+c_root = -999
+taper = -999
+twist_tip_deg = -999
+b_half = -999
+S_half = -999

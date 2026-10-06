@@ -41,7 +41,7 @@ import traceback
 import geometry
 import postprocess as pp
 
-__version__ = "2.6.0"
+__version__ = "2.7.0"
 
 DEFAULTS = {
     "flightstream_exe": "",
@@ -149,7 +149,7 @@ def _onoff(flag):
 # HEEDS legge le risposte per posizione: una chiave nuova si aggiunge SOLO in fondo al file, cioe'
 # in coda all'ultima sezione (vedi README, "Contratto con HEEDS"); mai in mezzo, mai riordinare o
 # togliere chiavi. Ogni modifica dello schema incrementa SCHEMA_VERSION (scritto in results.txt).
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 RESULTS_SCHEMA = (
     ("stato", ["schema_version", "status", "converged", "iterations"]),
     ("carichi", ["CL", "CD", "CDi", "CDo", "CMx", "CMy", "CMz", "L_over_D", "L_N", "D_N"]),
@@ -164,6 +164,8 @@ RESULTS_SCHEMA = (
                  "converged_viscous", "sep_marker_frac_up"]),
     # schema 4 (v2.6.0): carico lungo l'apertura, in coda (righe 1-45 invariate)
     ("apertura", ["cl_sec_max", "eta_cl_sec_max", "cl_sec_root", "cl_sec_eta05"]),
+    # schema 5 (v2.7.0): pianta della modalita' ccs_planform (valori effettivi: c_root derivato se size_by = S_half)
+    ("planform", ["c_root", "taper", "twist_tip_deg", "b_half", "S_half"]),
 )
 
 
@@ -289,7 +291,7 @@ def make_case(cfg, params):
     if mode not in geometry.GEOMETRY_VARIABLES:
         raise ValueError(f"geometry.mode '{mode}' sconosciuta. Disponibili: {sorted(geometry.GEOMETRY_VARIABLES)}")
     flight = [v for v in FLIGHT_VARS if v != "altitude" or uses_isa(cfg)]
-    allowed = flight + geometry.GEOMETRY_VARIABLES[mode]
+    allowed = flight + geometry.allowed_variables(cfg)
     case = {"altitude": 0.0} if "altitude" in allowed else {}
     for name, src in (("'case' del JSON", cfg["case"]), ("params.txt", params)):
         if "altitude" in src and "altitude" not in allowed:
@@ -968,6 +970,7 @@ def run(a, cfg, workdir, res, notes):
         geo = geometry.build_geometry(case, cfg, workdir)
         ref = {"Sref": rf["sref_m2"] or geo["Sref"], "Lref": rf["lref_m"] or geo["Lref"]}
         cfg["_span"], why = spanload_span(cfg, geo.get("span"))
+        res.update(geo.get("echo", {}))             # grandezze di pianta effettive (ccs_planform)
         if not ref["Sref"] or not ref["Lref"]:
             raise ValueError("Sref/Lref mancanti: con questa modalita' vanno nel JSON "
                              "(reference.sref_m2, reference.lref_m)")

@@ -19,7 +19,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 RUNS = os.path.abspath(os.path.join(REPO, "..", "baseline_runs"))
-CONFIG = {"fixed": "case_semiala_fixed.json", "ccs": "case_semiala_ccs.json"}
+CONFIG = {"fixed": "case_semiala_fixed.json", "ccs": "case_semiala_ccs.json", "planform": "case_semiala_planform.json"}
 
 
 def lines(path):
@@ -44,7 +44,8 @@ def main():
         shutil.copy(os.path.join(HERE, m, "params_baseline.txt"), os.path.join(wd, "params.txt"))
         cmd = [os.path.join(REPO, "run_fs.bat"), "--config", os.path.join(REPO, CONFIG[m])]
         rc = subprocess.run(cmd, cwd=wd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT).returncode
-        new, old = lines(os.path.join(wd, "results.txt")), lines(os.path.join(HERE, m, "results_baseline.txt"))
+        prev = os.path.join(HERE, m, "results_baseline.txt")
+        new, old = lines(os.path.join(wd, "results.txt")), (lines(prev) if os.path.isfile(prev) else [])
         diff = [(i + 1, o, n) for i, (o, n) in enumerate(zip(old + [""] * (len(new) - len(old)), new)) if o != n]
         print(f"{m}: codice {rc}, {len(new)} righe (prima {len(old)}), righe diverse: {len(diff)}")
         for i, o, n in diff:

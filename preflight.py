@@ -26,8 +26,9 @@ sys.path.insert(0, HERE)
 import fs_driver  # noqa: E402
 import geometry  # noqa: E402
 
-DEFAULT_CONFIGS = ["case_semiala_fixed.json", "case_semiala_ccs.json"]
-INPUTS = {"fixed": os.path.join("heeds_inputs", "fixed"), "ccs_wing": os.path.join("heeds_inputs", "ccs")}
+DEFAULT_CONFIGS = ["case_semiala_fixed.json", "case_semiala_ccs.json", "case_semiala_planform.json"]
+INPUTS = {"fixed": os.path.join("heeds_inputs", "fixed"), "ccs_wing": os.path.join("heeds_inputs", "ccs"),
+          "ccs_planform": os.path.join("heeds_inputs", "planform")}
 
 
 class Report:
@@ -87,6 +88,9 @@ def check_config(r, path):
     elif mode == "ccs_wing":
         geo = geometry._path(cfg, cfg["geometry"].get("base_ccs", ""))
         r.item(os.path.isfile(geo), f"{name}: CCS di partenza", geo)
+    elif mode == "ccs_planform":
+        geo = geometry._path(cfg, cfg["geometry"].get("profile", ""))
+        r.item(os.path.isfile(geo), f"{name}: profilo (Selig)", geo)
     try:
         r.item(True, f"{name}: eseguibile FlightStream", fs_driver.find_exe(None, cfg))
     except ValueError as e:

@@ -12,7 +12,7 @@ manuale né verificato è segnato **DA VERIFICARE**.
 
 Progetto `C:\Users\UtenteLocale\Desktop\heeds\semiala_fixed\semiala.heeds`, "Evaluate baseline design":
 1 design, 0 errori, 53 s. status 0, CL 0,5767, CD 0,0202, CMy −0,1993, L_over_D 28,5495, aoa 4: uguale al
-riferimento e a `heeds_inputs\fixed\results.txt` (allora 39 righe, schema 2; oggi 49 righe, schema 4: le righe 1–39 hanno le stesse chiavi e gli stessi valori).
+riferimento e a `heeds_inputs\fixed\results.txt` (allora 39 righe, schema 2; oggi 54 righe, schema 5: le righe 1–39 hanno le stesse chiavi e gli stessi valori).
 
 Verificato in quell'occasione:
 - **Variante A** del comando (`run_fs.bat` eseguito direttamente): funziona, `cmd /c` non serve. Codice di
@@ -128,7 +128,7 @@ Nell'**Execution tab → Analysis Execution Options → Advanced Options** dell'
   you expect some designs to exceed the Max execution time but want those designs to be marked as
   errors."* Il manuale non dice se il comando viene chiuso (**DA VERIFICARE**), né come viene trattato il
   controllo del codice di uscita (passo 6a) se il comando non è ancora terminato (**DA VERIFICARE**). La
-  condizione "File contains" `schema_version = 4` (passo 6b) lo marcherebbe di sicuro come errore: all'avvio
+  condizione "File contains" `schema_version = 5` (passo 6b) lo marcherebbe di sicuro come errore: all'avvio
   il driver cancella il vecchio `results.txt`. **Dopo un caso del genere controllare Gestione attività** e
   chiudere a mano un eventuale `FlightStream.exe`, altrimenti i design successivi danno `status = 6`.
 - **Default decimal delimiter = Period** (opzioni nella GUI: "From portal", "Period", "Comma"; il default
@@ -162,11 +162,11 @@ capire dal manuale, PDF p. 126) ma nel dialogo delle condizioni:
 
 **6b. Condizione su `results.txt` (facoltativa, non ancora configurata).** Nello Study_2 `successCondition:
 NONE`: oggi c'è solo il controllo del codice di uscita, che basta per gli errori del driver. La condizione
-"File contains" `schema_version = 4` serve a scartare i design se un giorno cambia lo schema di
+"File contains" `schema_version = 5` serve a scartare i design se un giorno cambia lo schema di
 `results.txt` (Managing conditions, PDF p. 154–161):
 1. Nel gruppo **Tools** del ribbon **Process** clicca **Manage Conditions**.
 2. **Add Condition** → tipo **File contains** (*"Searches a file for text. If the text is found, the condition
-   is marked as true."*). File: `results.txt`; testo: `schema_version = 4`. *(Come si sceglie il file e se il
+   is marked as true."*). File: `results.txt`; testo: `schema_version = 5`. *(Come si sceglie il file e se il
    campo accetta gli spazi: DA VERIFICARE; in alternativa cercare `schema_version`.)*
 3. **Close**, poi nello stesso dialogo **Conditions** (Condition Event **Success**) seleziona la condizione;
    **Evaluate in** = **Analysis folder**, Compute resource **Local**.
@@ -174,7 +174,7 @@ NONE`: oggi c'è solo il controllo del codice di uscita, che basta per gli error
 
 **Alternativa tutta in una condizione** (operatori and/or tra gli elementi, PDF p. 156 e 158: *"The second and
 subsequent items in the list allow you to choose how the item is combined with the previous item:
-logical or, and."*): una sola condizione con due elementi, **File contains** `schema_version = 4` in
+logical or, and."*): una sola condizione con due elementi, **File contains** `schema_version = 5` in
 `results.txt` **and** **File contains** `success=1` in `run_info.txt` (ultima riga del driver,
 `FS_DRIVER_RESULT status=<n> success=<0|1>`). `run_info.txt` non è un file di input/output dell'Analysis:
 il manuale dice che per una success condition *"the file may be included in the analysis using a condition.
@@ -206,14 +206,14 @@ Tagga il numero a destra di `=` sulle righe seguenti (le prime tre righe sono co
 
 ### Risposte (output, delimitatore `=`)
 
-Tagga il numero a destra di `=` di ogni riga di `heeds_inputs\<modalità>\results.txt`. **L'ordine delle 49 righe è
-fisso** e uguale per tutte le modalità (`RESULTS_SCHEMA`, `schema_version = 4`; le righe 1–39 sono quelle dello schema 2 e
-le 40–45 quelle dello schema 3, quindi il tagging già fatto, righe 2, 5, 6, 10, 12, resta valido); le chiavi non pertinenti
+Tagga il numero a destra di `=` di ogni riga di `heeds_inputs\<modalità>\results.txt`. **L'ordine delle 54 righe è
+fisso** e uguale per tutte le modalità (`RESULTS_SCHEMA`, `schema_version = 5`; le righe 1–39 sono quelle dello schema 2 e
+le 40–45 quelle dello schema 3, le 46–49 dello schema 4, quindi il tagging già fatto, righe 2, 5, 6, 10, 12, resta valido); le chiavi non pertinenti
 alla modalità valgono `-999`; le chiavi future si aggiungeranno solo in fondo al file.
 
 | Riga | Chiave | Sezione | Baseline fixed | Baseline ccs_wing | Uso |
 |---|---|---|---|---|---|
-| 1 | `schema_version` | stato | 4 | 4 | controllo (Success condition) |
+| 1 | `schema_version` | stato | 5 | 5 | controllo (Success condition) |
 | 2 | `status` | stato | 0 | 0 | **vincolo** `status = 0` |
 | 3 | `converged` | stato | 1 | 1 | diagnostica |
 | 4 | `iterations` | stato | 91 | 91 | diagnostica |
@@ -262,6 +262,11 @@ alla modalità valgono `-999`; le chiavi future si aggiungeranno solo in fondo a
 | 47 | `eta_cl_sec_max` | apertura | 0.0588636 | 0.0588636 | risposta: posizione in apertura del massimo (0 radice, 1 estremità) |
 | 48 | `cl_sec_root` | apertura | 0.635807 | 0.635807 | risposta: cl della sezione più vicina alla radice (η ≈ 0,02) |
 | 49 | `cl_sec_eta05` | apertura | 0.615943 | 0.615943 | risposta: cl a η = 0,5 (interpolato) |
+| 50 | `c_root` | planform | -999 | -999 | controllo: corda alla radice effettiva [m] (solo ccs_planform; baseline 0.345091) |
+| 51 | `taper` | planform | -999 | -999 | controllo: rapporto di rastremazione (solo ccs_planform; baseline 1) |
+| 52 | `twist_tip_deg` | planform | -999 | -999 | controllo: svergolamento all'estremità [deg] (solo ccs_planform; baseline 0) |
+| 53 | `b_half` | planform | -999 | -999 | controllo: semiapertura [m] (solo ccs_planform; baseline 2.64) |
+| 54 | `S_half` | planform | -999 | -999 | controllo: area della semiala [m²] (solo ccs_planform; baseline 0.911041) |
 
 Uso consigliato:
 - **Obiettivo:** `L_over_D` (riga 12), oppure `L_N` / `D_N` (righe 13–14). Con `chord_scale` Sref cambia da
@@ -272,6 +277,8 @@ Uso consigliato:
 - **Controllo:** righe 1, 15–18, 35–39 (eco dei valori effettivamente usati).
 - **Righe 40–45 (schema 3, v2.5.0):** accoppiamento viscoso e separazione, esplorativi: controllo e
   diagnostica, non obiettivi né vincoli. Le righe 1–39 sono identiche allo schema 2.
+- **Righe 50–54 (schema 5, v2.7.0):** pianta di `ccs_planform` (valori effettivi: con `geometry.size_by = "S_half"`
+  `c_root` è quello derivato). Baseline in `heeds_inputs\planform\` (righe 2–45 identiche a ccs_wing).
 - **Righe 46–49 (schema 4, v2.6.0):** carico lungo l'apertura (40 sezioni, carichi di sezione di FlightStream;
   `spanload.csv` nella cartella del design; controllo ∫cl·c contro CL in `run_info.txt`: −0,53 % sulla baseline).
   Utili come vincolo sul carico (es. `cl_sec_max` ≤ un cl di sezione ammissibile) o come diagnostica; riferiti alla
@@ -413,7 +420,7 @@ Serve a provare la Success condition senza lanciare FlightStream (≈ 1 s a desi
 2. Lancia "Evaluate baseline design" (o un design qualsiasi).
 3. Esito atteso dal driver, nella cartella del design (`HEEDS_0\Design<N>\Analysis_1`):
    - `fs_script.txt` scritto, FlightStream **non** lanciato (niente `fs_stdout.txt`, `loads.txt`, `surface.vtk`);
-   - `results.txt` completo: `schema_version = 4`, `status = 1`, coefficienti `-999`, eco di `aoa`;
+   - `results.txt` completo: `schema_version = 5`, `status = 1`, coefficienti `-999`, eco di `aoa`;
    - `run_info.txt`: `status = 1 (errore generico/setup)`, `- dry-run: FlightStream non lanciato`, ultima
      riga `FS_DRIVER_RESULT status=1 success=0`;
    - codice di uscita **1** (in `<studio>\.aux\Process_execution_actions.log`, riga `JC-Dn:end`).
@@ -422,7 +429,7 @@ Serve a provare la Success condition senza lanciare FlightStream (≈ 1 s a desi
    (0). This design analysis will be marked as an error."*; con Error Designs = Rename la cartella diventa
    `Design<N>-ERROR`.
    **Senza** il controllo del codice di uscita HEEDS accetterebbe il design: `results.txt` è leggibile e
-   contiene anche `schema_version = 4`, quindi la sola condizione "File contains" **non** basta a scartarlo
+   contiene anche `schema_version = 5`, quindi la sola condizione "File contains" **non** basta a scartarlo
    (CL = -999 entrerebbe nello studio). Per questo servono entrambi i controlli del passo 6.
 5. **Togli `--dry-run`** dalle Command options prima di lanciare lo studio vero.
 
@@ -464,10 +471,10 @@ Dal manuale (§9 "Run the study using the commands", PDF p. 1084–1085; opzioni
 - [ ] Execution tab → Advanced Options: Max execution time = 1200 s, Default decimal delimiter = punto.
 - [ ] Nella cartella del design ci sono `params.txt` (copiato da HEEDS con questo nome), `fs_script.txt`,
       `results.txt`, `run_info.txt`.
-- [ ] `results.txt` comincia con `schema_version = 4`; HEEDS legge gli stessi valori del file e di
+- [ ] `results.txt` comincia con `schema_version = 5`; HEEDS legge gli stessi valori del file e di
       `heeds_inputs\fixed\results.txt`.
 - [x] Controllo del codice di uscita (passo 6a) configurato e provato con un design in errore.
-- [ ] Facoltativo: condizione "File contains" `schema_version = 4` (passo 6b).
+- [ ] Facoltativo: condizione "File contains" `schema_version = 5` (passo 6b).
 - [ ] Prova di errore: una chiave sbagliata in `params.txt` (es. `aoa_x = 4`) → `status = 1`, codice di
       uscita 1, design rinominato `Design<X>-ERROR`.
 - [ ] Test dello Stop (passo 10): nessun `FlightStream.exe` orfano, oppure chiuso a mano.
