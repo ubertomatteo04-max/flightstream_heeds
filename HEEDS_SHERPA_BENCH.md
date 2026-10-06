@@ -9,7 +9,7 @@
 | JSON (nel comando) | `C:\Users\UtenteLocale\Desktop\fs_heeds_pipeline\fs_heeds_pipeline\configs\esplorativi\case_planform_taper_S.json` |
 
 Dati letti dai file reali il 2026-10-06 (`heeds_inputs\planform_S\`, `configs\esplorativi\case_planform_taper_S.json`,
-dry-run del driver senza FlightStream). Driver v2.8.1, schema 7 (D_N = Di_N + D0_N, D0_N dal foglio dei carichi in newton). Procedura generale: `HEEDS_SETUP.md`.
+dry-run del driver senza FlightStream). Driver v2.8.2, schema 8 (righe 1–64 = schema 7; riga 65 `stall_margin`, non usata dal benchmark). Procedura generale: `HEEDS_SETUP.md`.
 
 `heeds_inputs\planform_S\` è la cartella del benchmark (`size_by: "S_half"`). **Non usare** `heeds_inputs\planform\`:
 quella è la baseline con `size_by: "c_root"` (riga 7 = `c_root`) e con questo JSON dà status 1 ("chiavi non ammesse:
@@ -53,7 +53,7 @@ Contenuto reale del file (righe 1–4 commenti ereditati dalla baseline planform
 Fissi anche nel JSON: `size_by: "S_half"`, trim attivo. Le righe fisse si possono lasciare non taggate (il driver le legge
 dal file); se si taggano, vanno come costanti con questi valori.
 
-## 3. results.txt: `heeds_inputs\planform_S\results.txt` (schema 7, 64 righe) – risposte del benchmark
+## 3. results.txt: `heeds_inputs\planform_S\results.txt` (schema 8, 65 righe) – risposte del benchmark
 
 | risposta | riga | chiave | baseline (taper 1) | uso |
 |---|---|---|---|---|

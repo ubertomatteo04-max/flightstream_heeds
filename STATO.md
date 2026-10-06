@@ -1,4 +1,4 @@
-# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.8.1: Parte 8 in corso – 7C.1, 7E, 7F fatte)
+# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.8.2: Parte 8 – 7C.1, 7E, 7F, 7G fatte; pronto lo studio SHERPA completo)
 
 **Lavoro sull'ala chiuso (v2.6.0).** Conclusioni per il team: `REPORT_ALA.md`. Configurazione di riferimento D
 (disaccoppiata, separazione `none`); C e CS esplorative (`configs/esplorativi/`); modello di separazione abbandonato
@@ -831,6 +831,22 @@ XFOIL non usato in questa fase (`reference\xfoil\` resta com'è).
   con taper 0,4 (−25 %, −24 %) e con taper 1 e twist −5° (−7 %). η_stall > 0,6 nei due design con taper 0,4 e twist +1°.
 - Rettangolare non svergolata (b_half 2,64): margine −6,2 / +1,3 / +8,6 / +16,0 % a c_root 0,24 / 0,26 / 0,28 / 0,30 m;
   **corda minima ≈ 0,257 m, Sref minima ≈ 1,355 m²** (−25,6 % rispetto alla baseline, AR 20,6).
+
+**7G – cartella HEEDS per lo studio SHERPA completo (v2.8.2, schema 8)**
+- `stall_margin` = CLmax_wing / CL_req − 1 in coda (riga 65; solo con trim, −999 altrimenti). Schema 8: righe 1–64 =
+  schema 7, invariate. Baseline fixed/ccs/planform rigenerate: cambiano solo riga 1 e riga 65 (planform 0,331607).
+- `case_semiala_planform_full.json` (radice): come case_semiala_planform.json (trim, clmax XFOIL) con la mesh U120 × V64
+  e la sua motivazione scritte nel blocco mesh, e `heeds.inputs_dir = heeds_inputs/planform_full` (nuova chiave, usata
+  solo da preflight.py per scegliere i template; il driver la ignora).
+- `heeds_inputs/planform_full/`: params.txt (size_by c_root: righe 7–10 c_root, taper, twist_tip_deg, b_half) e
+  results.txt reale della baseline (D_N 6,55887, CLmax_wing 1,21927, CL_req 0,915638, stall_margin 0,331607,
+  eta_stall 0,0589, status 0). `heeds_inputs/planform_S/results.txt` rigenerato (schema 8). Preflight: OK sui quattro
+  JSON di default e su quello del benchmark.
+- `HEEDS_SHERPA_FULL.md`: file e comando, variabili e limiti, obiettivo min D_N (riga 14), vincoli stall_margin ≥ 0 (65),
+  eta_stall ≤ 0,6 (61), Re_tip ≥ 2·10⁵ (62), risposte di controllo, valori attesi della baseline, budget 150 valutazioni
+  (≈ 80 s per design, ≈ 3,3 h; Max execution time 3000 s sufficiente), criteri di accettazione (migliore < 5,24 N;
+  stima ≈ 4,9 N con b_half al limite e stall_margin ≈ 0), verifica 7H (da non eseguire ora), tabella delle 65 righe.
+  Nota: nel benchmark lo studio era in `errorMode: STOP`; per lo studio completo va impostato di non fermarsi sugli errori.
 
 ## 4. Metriche di separazione: implementate e ancora proposte
 

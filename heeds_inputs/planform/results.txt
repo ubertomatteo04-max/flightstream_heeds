@@ -1,4 +1,4 @@
-schema_version = 7
+schema_version = 8
 status = 0
 converged = 1
 iterations = 91
@@ -62,3 +62,4 @@ eta_stall = 0.0588636
 Re_tip = 474985
 AR = 15.3003
 e_span = 0.887519
+stall_margin = 0.331607

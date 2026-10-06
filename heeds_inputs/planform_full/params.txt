@@ -1,0 +1,10 @@
+# params.txt - studio SHERPA completo (case_semiala_planform_full.json, ccs_planform, size_by c_root, trim, clmax XFOIL).
+# Variabili: c_root [m] 0.276-0.552 (riga 7), taper [-] 0.4-1.0 (riga 8), twist_tip_deg [deg, + a cabrare] -5..+1 (riga 9),
+# b_half [m] 2.112-3.04 (riga 10). Fissi: aoa = alfa1 del trim (riga 5), velocity = V_cruise (riga 6). Valori = baseline.
+# Separatore decimale: punto. HEEDS sostituisce i numeri a destra di '='.
+aoa = 0.0
+velocity = 20.0
+c_root = 0.345091293
+taper = 1.0
+twist_tip_deg = 0.0
+b_half = 2.64

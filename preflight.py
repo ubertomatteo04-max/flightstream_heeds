@@ -26,7 +26,8 @@ sys.path.insert(0, HERE)
 import fs_driver  # noqa: E402
 import geometry  # noqa: E402
 
-DEFAULT_CONFIGS = ["case_semiala_fixed.json", "case_semiala_ccs.json", "case_semiala_planform.json"]
+DEFAULT_CONFIGS = ["case_semiala_fixed.json", "case_semiala_ccs.json", "case_semiala_planform.json",
+                   "case_semiala_planform_full.json"]
 INPUTS = {"fixed": os.path.join("heeds_inputs", "fixed"), "ccs_wing": os.path.join("heeds_inputs", "ccs"),
           "ccs_planform": os.path.join("heeds_inputs", "planform"),
           # ccs_planform con geometry.size_by = "S_half" (benchmark SHERPA, HEEDS_SHERPA_BENCH.md)
@@ -34,7 +35,13 @@ INPUTS = {"fixed": os.path.join("heeds_inputs", "fixed"), "ccs_wing": os.path.jo
 
 
 def inputs_key(cfg):
-    """Cartella di heeds_inputs per il JSON: dalla modalita' e, per ccs_planform, da geometry.size_by."""
+    """Cartella di heeds_inputs per il JSON: heeds.inputs_dir se il JSON la dichiara (es. heeds_inputs/planform_full),
+    altrimenti dalla modalita' e, per ccs_planform, da geometry.size_by."""
+    own = cfg["heeds"].get("inputs_dir")
+    if own:
+        key = "dir:" + own
+        INPUTS[key] = os.path.normpath(own)
+        return key
     mode = cfg["geometry"]["mode"]
     if mode == "ccs_planform" and cfg["geometry"].get("size_by", "c_root") == "S_half":
         return "ccs_planform_S"

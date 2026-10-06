@@ -57,14 +57,14 @@ heeds_report.bat --study "...\semiala_Study_2" --check-against-mock mock_runs\su
 ```
 
 **5. HEEDS:** seguire `HEEDS_SETUP.md` (procedura passo-passo del primo Evaluation Only, con la tabella
-delle 64 righe di `results.txt` da taggare e i file `heeds_inputs\<modalità>\params.txt` / `results.txt`
+delle 65 righe di `results.txt` da taggare e i file `heeds_inputs\<modalità>\params.txt` / `results.txt`
 da aggiungere in HEEDS).
 
 **Da sapere in breve**
 - Due modalità: `fixed` (template `.fsm`, variabili `aoa`, `velocity`, `sideslip`) e `ccs_wing` (semiala da
   CCS, in più `chord_scale`; `sideslip` = 0). Con `chord_scale` Sref cambia: obiettivi `L_over_D` o
   `L_N`/`D_N`, non CL.
-- `results.txt` ha sempre 64 righe nello stesso ordine (`-999` = non disponibile, schema 7); chiavi nuove solo in
+- `results.txt` ha sempre 65 righe nello stesso ordine (`-999` = non disponibile, schema 8); chiavi nuove solo in
   fondo. Righe 46–49: carico lungo l'apertura (`cl_sec_*`, `spanload.csv` nella cartella del design).
 - Incertezze (v2.6.0, `REPORT_ALA.md`): mesh ≈ 1 % sui carichi inviscidi, CDo GCI 2,9 % a 4° e 13,8 % a 12°;
   bordo d'uscita raccordato (default) contro tozzo (`te_type: "blunt"`, opzione): ≈ 4 % su CL, ≈ 6 % su CMy.
@@ -288,9 +288,10 @@ nello stesso ordine per **tutte** le modalità; quelle non pertinenti valgono -9
 | apertura (schema 4, v2.6.0) | `cl_sec_max eta_cl_sec_max cl_sec_root cl_sec_eta05` |
 | planform (schema 5, v2.7.0) | `c_root taper twist_tip_deg b_half S_half` (pianta effettiva di `ccs_planform`) |
 | missione (schema 6, v2.7.0) | `alpha_trim Di_N D0_N M_root_Nm CLmax_wing CL_req eta_stall Re_tip AR e_span` |
+| stallo (schema 8, v2.8.2) | `stall_margin` (= CLmax_wing / CL_req − 1, solo con trim) |
 
 Il significato è in `HEEDS_SETUP.md`. **HEEDS legge le risposte per posizione.** Regole:
-- una chiave nuova si aggiunge **solo in fondo al file** (in coda all'ultima sezione, oggi "missione"):
+- una chiave nuova si aggiunge **solo in fondo al file** (in coda all'ultima sezione, oggi "stallo"):
   aggiungerla in coda a una sezione intermedia sposterebbe tutte le righe successive;
 - mai riordinare né togliere chiavi;
 - una variabile geometrica nuova (modalità nuova) va aggiunta in fondo a `RESULTS_SCHEMA`: se manca, il
@@ -299,10 +300,10 @@ Il significato è in `HEEDS_SETUP.md`. **HEEDS legge le risposte per posizione.*
   riga di `results.txt`): così HEEDS, se controlla `schema_version = 5`, rifiuta un results.txt con
   un ordine diverso da quello taggato invece di leggere righe sbagliate;
 - `tests/test_schema.py` controlla che `fixed` e `ccs_wing` scrivano lo stesso elenco, che le
-  posizioni dello schema 7 non cambino (e le righe taggate 2, 5, 6, 10, 12) e che la prima riga sia `schema_version = 7`
+  posizioni dello schema 8 non cambino (e le righe taggate 2, 5, 6, 10, 12) e che la prima riga sia `schema_version = 8`
   (`python -m unittest discover -s tests -v`).
 
-Lo schema 7 (v2.8.1) non aggiunge righe ma cambia `D_N` (= Di_N + D0_N) e `D0_N` (dal foglio dei carichi in NEWTONS,
+Lo schema 8 (v2.8.2) aggiunge in coda `stall_margin` (riga 65). Lo schema 7 (v2.8.1) non aggiunge righe ma cambia `D_N` (= Di_N + D0_N) e `D0_N` (dal foglio dei carichi in NEWTONS,
 `loads_N.txt`, esportato dopo `SET_LOADS_AND_MOMENTS_UNITS NEWTONS`, manuale p. 349). Lo schema 6 (v2.7.0) aggiunge in coda le 10 righe "missione" (55–64); lo schema 5 le 5 righe "planform" (50–54); lo schema 4 (v2.6.0) le 4 righe della sezione "apertura" (46–49, carico lungo l'apertura,
 vedi sotto); lo schema 3 (v2.5.0) le 6 righe della sezione "viscoso" (40–45). Le righe 1–39 sono quelle
 dello schema 2, quindi il tagging HEEDS esistente resta valido. Lo schema 2 (v2.2.1) aveva riordinato le

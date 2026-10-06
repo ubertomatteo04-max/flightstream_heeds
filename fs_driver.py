@@ -41,7 +41,7 @@ import traceback
 import geometry
 import postprocess as pp
 
-__version__ = "2.8.1"
+__version__ = "2.8.2"
 
 DEFAULTS = {
     "flightstream_exe": "",
@@ -101,7 +101,8 @@ DEFAULTS = {
             "flightstream_process_names": ["FlightStream.exe"], "kill_stale_flightstream": False},
     # codice di uscita del processo: 0 se lo status e' in success_statuses, altrimenti 1
     # ([0] per l'ottimizzazione, [0, 4] per DOE in cui H/cf non sono obiettivi)
-    "heeds": {"success_statuses": [0]},
+    # inputs_dir: cartella di heeds_inputs con i template di questo JSON (solo per preflight.py; il driver non la usa)
+    "heeds": {"success_statuses": [0], "inputs_dir": None},
     "validation": {"CL": None, "CDi": None, "CDo": None, "CMy": None, "Re_ref": None,
                    "iterations": None, "rel_tol": 0.01},
 }
@@ -158,7 +159,7 @@ def _onoff(flag):
 # HEEDS legge le risposte per posizione: una chiave nuova si aggiunge SOLO in fondo al file, cioe'
 # in coda all'ultima sezione (vedi README, "Contratto con HEEDS"); mai in mezzo, mai riordinare o
 # togliere chiavi. Ogni modifica dello schema incrementa SCHEMA_VERSION (scritto in results.txt).
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 RESULTS_SCHEMA = (
     ("stato", ["schema_version", "status", "converged", "iterations"]),
     ("carichi", ["CL", "CD", "CDi", "CDo", "CMx", "CMy", "CMz", "L_over_D", "L_N", "D_N"]),
@@ -180,6 +181,8 @@ RESULTS_SCHEMA = (
     # (riga 57) = resistenza d'attrito dal foglio dei carichi in NEWTONS (non piu' quantizzati a 4 decimali di CD/CDo)
     ("missione", ["alpha_trim", "Di_N", "D0_N", "M_root_Nm", "CLmax_wing", "CL_req", "eta_stall", "Re_tip", "AR",
                   "e_span"]),
+    # schema 8 (v2.8.2): margine di stallo in coda (righe 1-64 = schema 7, invariate)
+    ("stallo", ["stall_margin"]),
 )
 
 
@@ -1133,6 +1136,8 @@ def run_trim(a, cfg, workdir, case, fluid, res, notes):
         res["CLmax_wing"], res["eta_stall"] = pp.critical_section(
             r1["_spanload_tab"], r2["_spanload_tab"], r1.get("_CL_log", r1["CL"]), r2.get("_CL_log", r2["CL"]),
             lambda c: clmax(vmin * c / nu))
+        if res.get("CL_req"):       # schema 8: ammissibile allo stallo a V_min se stall_margin >= 0
+            res["stall_margin"] = res["CLmax_wing"] / res["CL_req"] - 1.0
         if m["clmax_placeholder"]:
             notes.append("sezione critica: clmax(Re) SEGNAPOSTO (costante, in attesa di XFOIL): CLmax_wing e "
                          "eta_stall non sono stime fisiche")

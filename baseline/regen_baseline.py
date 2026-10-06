@@ -19,7 +19,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 RUNS = os.path.abspath(os.path.join(REPO, "..", "baseline_runs"))
-CONFIG = {"fixed": "case_semiala_fixed.json", "ccs": "case_semiala_ccs.json", "planform": "case_semiala_planform.json"}
+CONFIG = {"fixed": "case_semiala_fixed.json", "ccs": "case_semiala_ccs.json", "planform": "case_semiala_planform.json",
+          "planform_full": "case_semiala_planform_full.json"}
 
 
 def empty_tree(path):
