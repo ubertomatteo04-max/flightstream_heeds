@@ -1,0 +1,148 @@
+{
+  "_nota": "DIAGNOSTICA 7E (convergenza di mesh, non per HEEDS): come case_planform_taper_S.json con mesh u_pts = 80, u_growth_rate = 1.15369.",
+  "flightstream_exe": "",
+  "geometry": {
+    "mode": "ccs_planform",
+    "profile": "../../profiles/vespa_root.dat",
+    "root_le_m": [
+      0.002108707,
+      0.0,
+      0.01586614
+    ],
+    "n_sections": 7,
+    "size_by": "S_half",
+    "te_type": "blended",
+    "root_cap_tol_m": 0.0001,
+    "_nota": "profile: Selig (corda 1, LE in 0), da profiles/estrai_vespa_root.py; root_le_m: LE della radice del CCS di ccs_wing; size_by c_root oppure S_half (c_root derivato); twist positivo a cabrare, lineare in eta, attorno a c/4"
+  },
+  "case": {
+    "aoa": 0.0,
+    "velocity": 20.0,
+    "sideslip": 0.0,
+    "S_half": 0.911041,
+    "taper": 1.0,
+    "twist_tip_deg": 0.0,
+    "b_half": 2.64
+  },
+  "mesh": {
+    "u_pts": 80,
+    "u_growth_type": 3,
+    "u_growth_rate": 1.15369,
+    "u_periodicity": 2,
+    "v_pts": 64,
+    "v_growth_type": 1,
+    "v_growth_rate": 1.0,
+    "v_periodicity": 1,
+    "_nota": "Mesh_U (corda: 3 = addensata a LE e TE con periodicity 2) e Mesh_V (apertura, uniforme) del CCS, manuale 26.1 p. 82; valori = mesh attuale, quella dei risultati validati (convergenza di mesh: STATO.md §3.14)"
+  },
+  "fluid": {
+    "override_fluid": false,
+    "density": 1.225,
+    "viscosity": 1.78e-05,
+    "pressure": 101324.02,
+    "temperature": 288.166,
+    "specific_heat_ratio": 1.4,
+    "_nota": "valori della sezione fluido (Air) di semiala_run01.fsm, uguali per fixed e ccs_wing. override_fluid = true -> ISA alla quota 'altitude'"
+  },
+  "solver": {
+    "iterations": 500,
+    "convergence": 1e-05,
+    "threads": 0,
+    "model": "INCOMPRESSIBLE",
+    "bl_type": "TRANSITIONAL",
+    "roughness_nm": 0.0,
+    "viscous_coupling": false,
+    "wall_collision_avoidance": false,
+    "init_surfaces": [
+      [
+        1,
+        true
+      ]
+    ],
+    "wake_termination_x": "DEFAULT",
+    "symmetry": "MIRROR",
+    "vorticity_drag_boundaries": [
+      1
+    ]
+  },
+  "reference": {
+    "sref_m2": null,
+    "lref_m": null,
+    "symmetry_loads": true,
+    "moment_point_m": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "moment_frame_index": 2
+  },
+  "separation": {
+    "model": "none",
+    "surfaces": [
+      1
+    ],
+    "valarezo": false,
+    "laminar_separation": false,
+    "_nota": "modello di separazione di FlightStream: none (validato) oppure airfoil (esplorativo, criterio di Stratford)"
+  },
+  "wing_frame": {
+    "chord_axis": "+x",
+    "span_axis": "+y",
+    "up_axis": "+z",
+    "span_root_m": 0.0,
+    "_nota": "assi della semiala per dorso/ventre, x/c e strisce (metriche sep_frac_*, x_sep_up, H_max_attached_up); toglierlo per corpi non alari"
+  },
+  "postproc": {
+    "vtk_surfaces": [],
+    "strip": [
+      0.45,
+      0.55
+    ],
+    "bin_width": 0.02,
+    "xtr_threshold": 0.99,
+    "te_window": [
+      0.9,
+      0.98
+    ],
+    "exclude_le": 0.05
+  },
+  "run": {
+    "timeout_s": 240,
+    "save_fsm": false,
+    "license_retries": 2,
+    "license_wait_s": 60
+  },
+  "heeds": {
+    "success_statuses": [
+      0
+    ],
+    "_nota": "codice di uscita 0 se lo status e in questa lista: [0] per l ottimizzazione, [0, 4] per DOE in cui H/cf non sono obiettivi"
+  },
+  "validation": {
+    "CL": 0.5767,
+    "CDi": 0.0077,
+    "CDo": 0.0125,
+    "CMy": -0.1993,
+    "rel_tol": 0.01
+  },
+  "trim": {
+    "enabled": true,
+    "dalpha_deg": 2.0,
+    "max_shift_deg": 6.0,
+    "tol_rel": 0.005,
+    "_nota": "con enabled l'aoa di params.txt e' solo alfa1 (default 0); alfa2 = alfa1 + 2; terzo run ad alfa*: tutte le chiavi di carico vengono da li'"
+  },
+  "mission": {
+    "W_N": 147.15,
+    "V_cruise": 20.0,
+    "V_min": 12.0,
+    "rho": 1.225,
+    "b_half_max": 3.04,
+    "clmax_file": "../../profiles/clmax_vs_Re.csv",
+    "clmax_placeholder": true,
+    "_nota_W_N": "massa totale di Vespa, dato del team (15 kg)",
+    "_nota_V_min": "ipotesi: velocita' minima in volo traslato, da confermare",
+    "_nota_b_half_max": "+15 % su 2.64 m",
+    "_nota_clmax": "SEGNAPOSTO: clmax = 1.2 costante finche' manca XFOIL; CLmax_wing ed eta_stall non sono stime fisiche"
+  }
+}

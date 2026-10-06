@@ -1,4 +1,4 @@
-# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.8.1: Parte 8 in corso – 7C.1 fatta, schema 7)
+# STATO del progetto fs_heeds_pipeline — aggiornato al 2026-10-06 (v2.8.1: Parte 8 in corso – 7C.1 e 7E fatte, 7E in attesa di decisione)
 
 **Lavoro sull'ala chiuso (v2.6.0).** Conclusioni per il team: `REPORT_ALA.md`. Configurazione di riferimento D
 (disaccoppiata, separazione `none`); C e CS esplorative (`configs/esplorativi/`); modello di separazione abbandonato
@@ -806,6 +806,20 @@ XFOIL non usato in questa fase (`reference\xfoil\` resta com'è).
 - Taper 0,30/0,35/0,40/0,45/0,50 (`diagnostica/planform/check_7c1.md`): tutti status 0, 52–56 s per design;
   **D_N liscio: residuo massimo del fit quadratico 0,053 %** (Di_N 0,035 %, D0_N 0,070 %). Il D_N vecchio era costante
   (6,4729 N) su tutto l'intervallo. Il minimo di D_N non coincide con quello di Di_N: D0_N cresce con il taper.
+
+**7E – convergenza di mesh di ccs_planform con trim** (`diagnostica/planform/gci_7e.md`, `conclusioni_7e.md`;
+`run_mesh_7e.py`, JSON `configs/esplorativi/case_planform_mesh7e_*.json`)
+- 5 mesh (U120 × V43/V64/V96; U80/U120/U180 × V64 con growth in corda scalato) × 2 geometrie (taper 1 e 0,38, S_half
+  fisso), tutti status 0; tempo per design 38,5 s (U80), 43 s (V43), 54 s (attuale), 80 s (V96), 107 s (U180).
+- Medium → fine: in apertura variazioni ≤ 0,6 % (Di_N +0,4 % a ogni livello, non asintotico); in corda D0_N della
+  rettangolare +3,8 % (GCI 3,9 %), D_N +3,0 %, Di_N −1 %, e_span +1 %, alpha_trim −3 %. M_root e CLmax_wing ≤ 0,5 %.
+- (a) Lo scarto di e dalla linea portante è quasi tutto mesh in corda: e_ext (corda) 0,906 (taper 1, LL ≈ 0,91) e 0,991
+  (taper 0,38, LL ≈ 0,98); la mesh attuale sottostima e di circa il 2 % e il 4 %.
+- (b) ΔDi taper 1 / 0,38 = 6,99–7,41 % sulle 5 mesh: escursione 0,41 punti, **stabile**; ΔD = 0,25–4,37 %: **non
+  stabile** (D0_N della rettangolare dipende dalla mesh in corda).
+- **Nessuna mesh provata ha GCI < 1 % su D_N** (corda 3,1 %, apertura 1,6 %). Proposta: mesh attuale U120 × V64 con
+  incertezza di D_N dichiarata (≈ 3 %, su D0_N); alternative U180 × V64 (2× tempo, non basta) o obiettivo Di_N.
+  **In attesa di decisione dell'utente.**
 
 ## 4. Metriche di separazione: implementate e ancora proposte
 
