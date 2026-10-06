@@ -1,0 +1,13 @@
+# clmax(Re) del profilo profiles/vespa_root.dat, XFOIL 6.99 Ncrit 9, Mach 0, PPAR N 180 (Parte 7D).
+# Massimo cl fra i punti convergenti di alfa -4..18 passo 0,25. 'incerto' = meno di 2 punti convergenti
+# oltre il massimo (stallo non visto). NON ancora attivo nel JSON (mission.clmax_file).
+Re,clmax,alpha_stall_deg,source
+100000,1.2922,12.00,XFOIL Ncrit 9
+150000,1.3218,13.50,XFOIL Ncrit 9
+200000,1.3343,13.25,XFOIL Ncrit 9
+250000,1.3390,13.75,XFOIL Ncrit 9
+300000,1.3518,14.50,XFOIL Ncrit 9
+400000,1.3691,15.25,XFOIL Ncrit 9
+500000,1.3964,15.00,XFOIL Ncrit 9
+600000,1.4272,15.50,XFOIL Ncrit 9
+800000,1.4863,15.75,XFOIL Ncrit 9

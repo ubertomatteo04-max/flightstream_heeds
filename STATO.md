@@ -776,6 +776,20 @@ XFOIL non usato in questa fase (`reference\xfoil\` resta com'è).
   SHERPA vedrebbe un gradino. Proposta (non fatta): esportare i carichi anche in NEWTONS (più cifre su D0) o
   ricostruire CDo da cf del VTK.
 
+**7D – polari XFOIL e clmax(Re) di vespa_root.dat** (v2.8.0, 2026-10-06; fatta mentre girava lo studio HEEDS della
+7C.1: nessun FlightStream, nessuna modifica a driver, geometria, post-processing, heeds_inputs né al JSON)
+- `xfoil/xfoil_polars.py` (XFOIL 6.99 MIT in `..\tools\XFOIL6.99\`, file di comandi + subprocess con timeout): PPAR N 180,
+  Mach 0, ITER 200, α −4…18° passo 0,25° in due sequenze da 0°, Re 1–8·10⁵ (9 valori) più 4,75·10⁵, Ncrit 9 e 5.
+  TE tozzo lasciato aperto: XFOIL lo riconosce ("Blunt trailing edge. Gap = 0.00652") e lo tratta come base con la scia
+  dai due spigoli.
+- clmax(Re) Ncrit 9: 1,292 (1·10⁵) → 1,396 (5·10⁵) → 1,486 (8·10⁵), α_stall 12–15,75°; Ncrit 5: 1,224 → 1,453 → 1,545.
+  Tutti **validi** (≥ 7 punti convergenti oltre il massimo); 80–89 punti convergenti su 89 per polare.
+- Re 4,75·10⁵ Ncrit 9: cl_α 2D 6,436 /rad, α₀ −2,10°, cl(4°) 0,6874, clmax 1,391 a 15,25° (v2.5.1, M 0,059: 1,381 a 15,5°).
+- `xfoil/clmax_vs_Re.csv` (Ncrit 9, colonna `source`, letto correttamente da `postprocess.read_clmax_table`);
+  `xfoil/clmax.md`; polari in `xfoil/polars/`. **Non attivo:** `mission.clmax_file` punta ancora al segnaposto
+  `profiles/clmax_vs_Re.csv` (invariato); copia del segnaposto in `profiles/clmax_vs_Re.csv.bak`. Confronto con la sezione
+  a metà apertura di FlightStream rimandato.
+
 ## 4. Metriche di separazione: implementate e ancora proposte
 
 Implementate (v2.2.0, con `wing_frame`): `sep_frac_up_le`, `x_sep_up`, `H_max_attached_up`,

@@ -28,3 +28,9 @@ spanload.txt
 # CSV di riepilogo della diagnostica (piccoli): nel repo
 !diagnostica/**/*.csv
 spanload_N.txt
+
+# 7D: file di lavoro di XFOIL (rigenerabili); polari e clmax nel repo
+xfoil/work/
+xfoil/run_log.txt
+!xfoil/*.csv
+!xfoil/polars/*.csv
